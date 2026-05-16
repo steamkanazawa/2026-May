@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <title>推し紹介サイト</title>
+
+  <style>
+    body {
+      background-color: #f0fff0;
+      color: #333333;
+      text-align: center;
+    }
+
+    h1 {
+      background-color: #fefefe;
+      color: #4dff00;
+    }
+
+    ul {
+      background-color: #fefefe;
+      color: #ff0080;
+      display: inline-block;
+      text-align: left;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>推し紹介：イモムシ</h1>
+  <p>イモムシは、世界一魅力的な生き物です！</p>
+  <p>今日は、私が大好きなポイントを3つ紹介します。</p>
+
+  <h2>大好きなところ</h2>
+  <ul>
+    <li>ムチムチしててカワイイ！</li>
+    <li>そのへんで捕まえて飼える（餌もタダ！）</li>
+    <li>羽化するまで育てると感動的！</li>
+  </ul>
+
+  <img
+    src="https://upload.wikimedia.org/wikipedia/commons/f/f3/Chenille_de_Grand_porte_queue_%28macaon%29.jpg?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=original"
+    alt="かわいいイモムシの画像" width="400">
+
+  <p>
+    もっと詳しく知りたい人は、
+    <a href="https://youtu.be/Imf0dUee4y0?si=JwNcXLI_vZsRBT8J" target="_blank">イモムシの飼い方</a>
+    をチェック！
+  </p>
+
+  <hr>
+  <h2>イモムシクイズ！</h2>
+  <p>イモムシが成虫になると何になる？</p>
+
+  <button onclick="check('ハチ')">
+    ハチ
+  </button>
+
+  <button onclick="check('チョウ')">
+    チョウ
+  </button>
+  
+  <button onclick="check('セミ')">
+    セミ
+  </button>
+
+</body>
+
+</html>
+
+<script>
+  function check(kaitou) {
+    if (kaitou === "チョウ") {
+      alert("正解！");
+    } else {
+      alert("残念！");
+    }
+  }
+</script>

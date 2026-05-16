@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>シューティングゲーム</title>
+
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: black;
+    }
+
+    canvas {
+      display: block;
+      margin: auto;
+      background: #111;
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="game" width="800" height="600"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+const player = {
+  x: 370,
+  y: 520,
+  width: 60,
+  height: 60,
+  speed: 6
+};
+
+const bullets = [];
+const enemies = [];
+
+const keys = {};
+
+document.addEventListener("keydown", (e) => {
+  keys[e.key] = true;
+
+  // スペースキーで弾発射
+  if (e.key === " ") {
+    bullets.push({
+      x: player.x + player.width / 2 - 5,
+      y: player.y,
+      width: 10,
+      height: 20,
+      speed: 8
+    });
+  }
+});
+
+document.addEventListener("keyup", (e) => {
+  keys[e.key] = false;
+});
+
+// 敵を定期生成
+setInterval(() => {
+  enemies.push({
+    x: Math.random() * 740,
+    y: -50,
+    width: 50,
+    height: 50,
+    speed: 2 + Math.random() * 3
+  });
+}, 1000);
+
+function update() {
+
+  // プレイヤー移動
+  if (keys["ArrowLeft"]) {
+    player.x -= player.speed;
+  }
+
+  if (keys["ArrowRight"]) {
+    player.x += player.speed;
+  }
+
+  // 画面外に出ない
+  if (player.x < 0) player.x = 0;
+  if (player.x > 740) player.x = 740;
+
+  // 弾移動
+  for (let i = 0; i < bullets.length; i++) {
+    bullets[i].y -= bullets[i].speed;
+  }
+
+  // 敵移動
+  for (let i = 0; i < enemies.length; i++) {
+    enemies[i].y += enemies[i].speed;
+  }
+
+  // 当たり判定
+  for (let i = enemies.length - 1; i >= 0; i--) {
+    for (let j = bullets.length - 1; j >= 0; j--) {
+
+      const e = enemies[i];
+      const b = bullets[j];
+
+      if (
+        b.x < e.x + e.width &&
+        b.x + b.width > e.x &&
+        b.y < e.y + e.height &&
+        b.y + b.height > e.y
+      ) {
+        enemies.splice(i, 1);
+        bullets.splice(j, 1);
+        break;
+      }
+    }
+  }
+}
+
+function draw() {
+
+  // 背景
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // プレイヤー
+  ctx.fillStyle = "cyan";
+  ctx.fillRect(
+    player.x,
+    player.y,
+    player.width,
+    player.height
+  );
+
+  // 弾
+  ctx.fillStyle = "yellow";
+
+  bullets.forEach((b) => {
+    ctx.fillRect(b.x, b.y, b.width, b.height);
+  });
+
+  // 敵
+  ctx.fillStyle = "red";
+
+  enemies.forEach((e) => {
+    ctx.fillRect(e.x, e.y, e.width, e.height);
+  });
+}
+
+function gameLoop() {
+  update();
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+</script>
+
+</body>
+</html>
