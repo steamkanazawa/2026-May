@@ -1,1 +1,82 @@
+<!DOCTYPE html>
+<html lang="ja">
 
+<head>
+    <meta charset="UTE-8">
+    <title>推し紹介サイト</title>
+
+    <style>
+        body {
+            background-color: #ffffff;
+            color: #333333;
+        }
+
+        h1 {
+            background-color: #ffffff;
+            color: rgb(255, 113, 113);
+        }
+
+        h2 {
+            background-color: #ffffff;
+            color: cadetblue;
+        }
+
+        li {
+            background-color: #ffffff;
+            color: dimgray;
+
+        }
+    </style>
+</head>
+
+<body>
+    <h1>推し紹介：歩く</h1>
+    <p>歩くのはとても楽しいです</p>
+    <p>今日は歩くことの楽しさ２つ紹介します</p>
+
+    <h2>様々なことに気づける</h2>
+
+    <li>植物の匂い</li>
+    <li>太陽の光</li>
+    <li>道行く人</li>
+    <p>などに気づくことができます</p>
+    <p>こうした小さな幸せが、幸福につながります</p>
+
+    <h2>お勧めの歩き方</h2>
+
+    <p>私はいつも、見つけた植物などを、触りながら、歩いたり。</p>
+    <p>たんぽぽを見つけると、必ず綿毛を飛ばすようしたり。</p>
+    <p>他にも、雲などを眺めたりするのも素敵です。</p>
+
+    <img src="https://www.1023world.net/blog/wp-content/uploads/2011/06/20110603-riverside.jpg" alt="植物の画像" width="500">
+    <img src="https://gvs.weathernews.jp/smart/report/image/2021-07-15/56553439.jpg" alt="入道雲の画像" width="300">
+
+    <hr>
+    <h2>歩クイズ</h2>
+    <p>歩くと気分が良くなるのはなぜ？</p>
+
+    <button onclick="check('脳がリフレッシュされるから')">
+        脳がリフレッシュされるから
+    </button>
+
+    <button onclick="check('歩くと重力が弱くなるから')">
+        歩くと重力が弱くなるから
+    </button>
+
+    <button onclick="check('地面から元気が伝わってくるから')">
+        地面から元気が伝わってくるか
+    </button>
+
+</body>
+
+</html>
+
+<script>
+    function check(kaitou){
+        if (kaitou === "脳がリフレッシュされるから"){
+            alert("鋭い、歩き慣れてるかな？（ｗ）")
+         } else {
+            alert("惜しい（ｗ）まずは外に出よう")
+         }
+    }
+</script>
