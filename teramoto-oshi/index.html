@@ -1,42 +1,101 @@
 <!DOCTYPE html>
-<html lang=" ja">
+<html lang="ja">
 
 <head>
     <meta charset="UTF-8">
-    <title>ベタの良いところ</title>
+    <title>ベタについて</title>
 
     <style>
         body {
-            background-color: mediumaquamarine;
+            background-color: rgba(20, 87, 175, 0.623);
             color: black;
             text-align: center;
         }
 
         h1 {
-            background-color: rgb(26, 209, 169);
-            color: rgb(0, 126, 215);
+            background-color: aliceblue;
+            color: rgb(0, 104, 178);
+            padding: 10px;
         }
 
         ul {
-            background-color: aquamarine;
             color: black;
             display: inline-block;
             text-align: left;
-
         }
+
+        /* ーーー マウスの位置から広がるリアル波紋用のCSS ーーー */
+        .wave-container {
+            position: relative;
+            width: 400px;
+            margin: 20px auto;
+            overflow: hidden;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            user-select: none;
+            /* 文字選択の青いハイライトを防ぐ */
+        }
+
+        .wave-container img {
+            display: block;
+            width: 100%;
+            height: auto;
+            pointer-events: none;
+            /* マウスの位置を正確に測るために画像への反応をオフにする */
+        }
+
+        /* JavaScriptで動的に作られる波紋（ ripple ）のスタイル */
+        .ripple {
+            position: absolute;
+            border: 2px solid rgba(255, 255, 255, 0.8);
+            /* 透明感のある白 */
+            background: rgba(200, 230, 255, 0.15);
+            /* ほんのり水の青 */
+            border-radius: 50%;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            /* マウスの先が円の中心になるようにずらす */
+            animation: ripple-animation 1s ease-out forwards;
+        }
+
+        /* 波紋が広がるアニメーション */
+        @keyframes ripple-animation {
+            0% {
+                width: 0;
+                height: 0;
+                opacity: 0.9;
+            }
+
+            100% {
+                width: 120px;
+                /* 波紋が広がる最大の大きさ（ここでサイズ調整できます） */
+                height: 120px;
+                opacity: 0;
+                border-width: 0.5px;
+            }
+        }
+
+        /* ーーー ここまで ーーー */
     </style>
 
 </head>
 
 <body>
-    <h1>ベタのここが良い!!</h1>
+    <h1>ベタを飼ってみてわかったこと</h1>
+
     <ul>
-        <li>ヒレがきれい</li>
-        <li>エアポンプがいらない</li>
-        <li>小さな水槽でも飼える</li>
+        <li>良かったこと</li>
+        <li>小さな水槽でも飼うことができる</li>
+        <li>エアポンプを使わなくてもいい</li>
+        <li>ヒレや色がきれい</li>
     </ul>
     <br>
-    <img src="https://www.bettashop.net/img/hm-sample-tb.jpg" alt="べたの画像" width="400">
+
+    <!-- id="waveContainer" を追加しました -->
+    <div class="wave-container" id="waveContainer">
+        <img src="https://www.bettashop.net/img/hm-sample-tb.jpg" alt="べたの画像" width="400">
+    </div>
 
     <p>
         詳しい飼い方を知りたい人は
@@ -60,6 +119,7 @@
     </button>
 
     <script>
+        // クイズの判定用
         function check(kaitou) {
             if (kaitou === "東南アジアの水田やゆっくりした小川") {
                 alert("正解！");
@@ -67,6 +127,36 @@
                 alert("残念！");
             }
         }
+
+        // ーーー ここからJavaScriptでマウスの位置に波紋を作る処理 ーーー
+        const container = document.getElementById('waveContainer');
+
+        // 画像の上でマウスが動いたときに波紋を作る
+        container.addEventListener('mousemove', function (e) {
+            // 波紋が多すぎて画面が真っ白にならないように、少し間引く設定
+            if (Math.random() > 0.2) return;
+
+            const ripple = document.createElement('span');
+            ripple.classList.add('ripple');
+
+            // マウスが画像内の「上から何px、左から何px」にいるかを計算
+            const rect = container.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            // 計算した位置に波紋を配置
+            ripple.style.left = x + 'px';
+            ripple.style.top = y + 'px';
+
+            // 画像の枠の中に波紋（spanタグ）を突っ込む
+            container.appendChild(ripple);
+
+            // 1秒経ったら（波が消えたら）HTMLから自動で削除する（重くならないための対策）
+            setTimeout(() => {
+                ripple.remove();
+            }, 1000);
+        });
+        /* ーーー ここまで ーーー */
     </script>
 </body>
 
