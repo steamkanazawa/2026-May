@@ -1,1 +1,82 @@
+<!DOCTYPE html>
+<html long="ja">
 
+<head>
+    <meta charset="UTF-8">
+    <title>サイゼリヤのファン</title>
+
+    <style>
+        body {
+            background-color: #4dcb4d;
+            color: #333333;
+            font-size: 30px;
+        }
+
+        h3 {
+            background-color: #f0fff0;
+            color: #ff2600;
+        }
+
+        ul {
+            background-color: #f0fff0;
+            color: #333333;
+            display: inline-block;
+            text-align: left;
+        }
+    </style>
+
+
+</head>
+
+
+<body>
+    <h3>サイゼリヤのええところ</h3>
+    <ul>
+        <li>安い（物価高に対して）</li>
+        <li>おいしい</li>
+        <li>どこでもある</li>
+        <li>メニューが普通に多い</li>
+        <li>静か（店員が少なく）</li>
+        <li>珍しいドリンクがある</li>
+    </ul>
+    <img src="https://www.saizeriya.co.jp/files/SP_%E3%83%9F%E3%83%A9%E3%83%8ED_%E3%83%A1%E3%82%A4%E3%83%B3.webp"
+        alt="ミラノ風ドリア" width="200">
+    <img src="https://www.saizeriya.co.jp/files/2203_%E3%83%90%E3%83%83%E3%83%95%E3%82%A1%E3%83%AD%E3%83%BC%E3%83%A2%E3%83%83%E3%83%84%E3%82%A1%E3%83%AC%E3%83%A9%E3%81%AE%E3%83%9E%E3%83%AB%E3%82%B2%E3%83%AA%E3%83%BC%E3%82%BF%E3%83%94%E3%82%B6_sp.webp"
+        alt="バッファローモッツァレラのマルゲリータピザ" width="200">
+    <img src="https://www.saizeriya.co.jp/files/2305_%E3%82%AB%E3%83%AB%E3%83%9C_SP%E3%83%A1%E3%82%A4%E3%83%B3.webp"
+        alt="カルボナーラ" width="200">
+
+    <p>
+        気になる人は、
+        <a href="https://www.saizeriya.co.jp/" target="_blank">サイゼリヤ公式サイト</a>
+        をチェック！
+    </p>
+    <hr>
+    <h2>サイゼリアクイズ</h2>
+    <p>ミラノ風ドリアの税込価格は？（2026年）</p>
+
+    <button onclick="check(250)">
+        250円
+    </button>
+
+    <button onclick="check(350)">
+        350円
+    </button>
+
+    <button onclick="check(300)">
+        300円
+    </button>
+
+</body>
+
+</html>
+
+<script>
+    function check(kaitou) {
+        if (kaitou === 300) {
+            alert("正解、常連客だね！");
+        } else {
+            alert("ハズレ");
+        }
+    }
+</script>
