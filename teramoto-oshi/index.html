@@ -24,10 +24,12 @@
             text-align: left;
         }
 
-        /* ーーー マウスの位置から広がるリアル波紋用のCSS ーーー */
+        /* ーーー マウス・スマホの位置から広がるリアル波紋用のCSS ーーー */
         .wave-container {
             position: relative;
             width: 400px;
+            max-width: 90%;
+            /* スマホの画面幅からはみ出さないための対策 */
             margin: 20px auto;
             overflow: hidden;
             border-radius: 12px;
@@ -35,6 +37,8 @@
             cursor: pointer;
             user-select: none;
             /* 文字選択の青いハイライトを防ぐ */
+            touch-action: none;
+            /* スマホでなぞったときに画面スクロールを止め、波紋をなめらかに出す */
         }
 
         .wave-container img {
@@ -42,10 +46,10 @@
             width: 100%;
             height: auto;
             pointer-events: none;
-            /* マウスの位置を正確に測るために画像への反応をオフにする */
+            /* 位置を正確に測るために画像への反応をオフにする */
         }
 
-        /* JavaScriptで動的に作られる波紋（ ripple ）のスタイル */
+        /* 動的に作られる波紋（ ripple ）のスタイル */
         .ripple {
             position: absolute;
             border: 2px solid rgba(255, 255, 255, 0.8);
@@ -55,7 +59,7 @@
             border-radius: 50%;
             pointer-events: none;
             transform: translate(-50%, -50%);
-            /* マウスの先が円の中心になるようにずらす */
+            /* 指の先が円の中心になるようにずらす */
             animation: ripple-animation 1s ease-out forwards;
         }
 
@@ -69,7 +73,7 @@
 
             100% {
                 width: 120px;
-                /* 波紋が広がる最大の大きさ（ここでサイズ調整できます） */
+                /* 波紋が広がる最大の大きさ */
                 height: 120px;
                 opacity: 0;
                 border-width: 0.5px;
@@ -92,7 +96,6 @@
     </ul>
     <br>
 
-    <!-- id="waveContainer" を追加しました -->
     <div class="wave-container" id="waveContainer">
         <img src="https://www.bettashop.net/img/hm-sample-tb.jpg" alt="べたの画像" width="400">
     </div>
@@ -128,18 +131,18 @@
             }
         }
 
-        // ーーー ここからJavaScriptでマウスの位置に波紋を作る処理 ーーー
+        // ーーー ここからJavaScriptでマウス・スマホの位置に波紋を作る処理 ーーー
         const container = document.getElementById('waveContainer');
 
-        // 画像の上でマウスが動いたときに波紋を作る
-        container.addEventListener('mousemove', function (e) {
+        // pointermove を使うことでマウスとスマホのタッチ両方に対応
+        container.addEventListener('pointermove', function (e) {
             // 波紋が多すぎて画面が真っ白にならないように、少し間引く設定
             if (Math.random() > 0.2) return;
 
             const ripple = document.createElement('span');
             ripple.classList.add('ripple');
 
-            // マウスが画像内の「上から何px、左から何px」にいるかを計算
+            // マウスや指が画像内の「上から何px、左から何px」にいるかを計算
             const rect = container.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
