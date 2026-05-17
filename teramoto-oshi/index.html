@@ -1,1 +1,73 @@
+<!DOCTYPE html>
+<html lang=" ja">
 
+<head>
+    <meta charset="UTF-8">
+    <title>ベタの良いところ</title>
+
+    <style>
+        body {
+            background-color: mediumaquamarine;
+            color: black;
+            text-align: center;
+        }
+
+        h1 {
+            background-color: rgb(26, 209, 169);
+            color: rgb(0, 126, 215);
+        }
+
+        ul {
+            background-color: aquamarine;
+            color: black;
+            display: inline-block;
+            text-align: left;
+
+        }
+    </style>
+
+</head>
+
+<body>
+    <h1>ベタのここが良い!!</h1>
+    <ul>
+        <li>ヒレがきれい</li>
+        <li>エアポンプがいらない</li>
+        <li>小さな水槽でも飼える</li>
+    </ul>
+    <br>
+    <img src="https://www.bettashop.net/img/hm-sample-tb.jpg" alt="べたの画像" width="400">
+
+    <p>
+        詳しい飼い方を知りたい人は
+        <a href="https://www.kotobuki-kogei.co.jp/betta/" target="_blank">ベタの飼い方</a>
+        をチェック!!
+    </p>
+    <hr>
+    <h2>ベタクイズ!!</h2>
+    <p>野生のベタの生息地の環境は？</p>
+
+    <button onclick="check('東南アジアの水田やゆっくりした小川')">
+        東南アジアの水田やゆっくりした小川
+    </button>
+
+    <button onclick="check('南米のアマゾン川など流れの速い川')">
+        南米のアマゾン川など流れの速い川
+    </button>
+
+    <button onclick="check('アフリカの乾燥した砂漠にある湖')">
+        アフリカの乾燥した砂漠にある湖
+    </button>
+
+    <script>
+        function check(kaitou) {
+            if (kaitou === "東南アジアの水田やゆっくりした小川") {
+                alert("正解！");
+            } else {
+                alert("残念！");
+            }
+        }
+    </script>
+</body>
+
+</html>
