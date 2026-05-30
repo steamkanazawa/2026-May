@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>見やすい強CPUチェス</title>
+<style>
+body{
+  margin:0;
+  background:#1e1e1e;
+  color:white;
+  font-family:"Yu Gothic","Meiryo",sans-serif;
+  text-align:center;
+}
+h1{
+  margin:14px 0 6px;
+}
+#info{
+  font-size:22px;
+  margin:8px;
+}
+#topbar{
+  margin-bottom:10px;
+}
+#board{
+  width:640px;
+  height:640px;
+  margin:0 auto;
+  display:grid;
+  grid-template-columns:repeat(8,80px);
+  grid-template-rows:repeat(8,80px);
+  border:6px solid #111;
+  box-shadow:0 0 20px rgba(0,0,0,.4);
+}
+.cell{
+  width:80px;
+  height:80px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  user-select:none;
+  position:relative;
+}
+.light{
+  background:#f0d9b5;
+}
+.dark{
+  background:#b58863;
+}
+.sel{
+  box-shadow:inset 0 0 0 5px #ffe600;
+}
+.move::after{
+  content:"";
+  width:22px;
+  height:22px;
+  border-radius:50%;
+  background:rgba(255,255,0,.65);
+  position:absolute;
+}
+.cap::after{
+  content:"";
+  position:absolute;
+  inset:8px;
+  border:5px solid rgba(255,70,70,.95);
+  border-radius:50%;
+}
+.check{
+  box-shadow:inset 0 0 0 5px #ff2f2f;
+}
+
+.piece{
+  width:58px;
+  height:58px;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:42px;
+  font-weight:bold;
+  line-height:1;
+  position:relative;
+  z-index:2;
+}
+
+.whitePiece{
+  background:linear-gradient(#ffffff,#d9d9d9);
+  color:#111;
+  border:2px solid #888;
+  box-shadow:
+    0 3px 8px rgba(0,0,0,.45),
+    inset 0 1px 0 rgba(255,255,255,.9);
+}
+
+.blackPiece{
+  background:linear-gradient(#444,#111);
+  color:#fff;
+  border:2px solid #bbb;
+  box-shadow:
+    0 3px 8px rgba(0,0,0,.45),
+    inset 0 1px 0 rgba(255,255,255,.15);
+}
+
+button, select{
+  font-size:18px;
+  padding:8px 14px;
+  border:none;
+  border-radius:10px;
+  margin:6px;
+}
+button{
+  cursor:pointer;
+}
+</style>
+</head>
+<body>
+
+<h1>見やすい強CPUチェス</h1>
+
+<div id="info">白の番です</div>
+
+<div id="topbar">
+  CPUの強さ：
+  <select id="level">
+    <option value="2">ふつう</option>
+    <option value="3" selected>つよい</option>
+    <option value="4">かなりつよい</option>
+  </select>
+  <button onclick="resetGame()">リセット</button>
+</div>
+
+<div id="board"></div>
+
+<script>
+const boardEl = document.getElementById("board");
+const info = document.getElementById("info");
+const levelSelect = document.getElementById("level");
+
+const icon = {
+  wK:"♔", wQ:"♕", wR:"♖", wB:"♗", wN:"♘", wP:"♙",
+  bK:"♚", bQ:"♛", bR:"♜", bB:"♝", bN:"♞", bP:"♟"
+};
+
+const pieceValue = {
+  P:100,
+  N:320,
+  B:330,
+  R:500,
+  Q:900,
+  K:20000
+};
+
+let board;
+let turn = "w";
+let selected = null;
+let moves = [];
+let gameOver = false;
+let cpuThinking = false;
+
+function resetGame(){
+  board = [
+    ["bR","bN","bB","bQ","bK","bB","bN","bR"],
+    ["bP","bP","bP","bP","bP","bP","bP","bP"],
+    ["","","","","","","",""],
+    ["","","","","","","",""],
+    ["","","","","","","",""],
+    ["","","","","","","",""],
+    ["wP","wP","wP","wP","wP","wP","wP","wP"],
+    ["wR","wN","wB","wQ","wK","wB","wN","wR"]
+  ];
+  turn = "w";
+  selected = null;
+  moves = [];
+  gameOver = false;
+  cpuThinking = false;
+  draw();
+}
+
+function draw(){
+  boardEl.innerHTML = "";
+
+  if(gameOver){
+    info.textContent = gameOver;
+  }else{
+    const checkText = inCheck(turn, board) ? "　チェック！" : "";
+    info.textContent = turn === "w" ? "白の番です" + checkText : "CPUが考え中..." + checkText;
+  }
+
+  const whiteKing = findKing("w", board);
+  const blackKing = findKing("b", board);
+
+  for(let y=0;y<8;y++){
+    for(let x=0;x<8;x++){
+      const cell = document.createElement("div");
+      cell.className = "cell " + ((x+y)%2===0 ? "light" : "dark");
+
+      const p = board[y][x];
+      if(p){
+        const pieceSpan = document.createElement("div");
+        pieceSpan.className = "piece " + (p[0] === "w" ? "whitePiece" : "blackPiece");
+        pieceSpan.textContent = icon[p];
+        cell.appendChild(pieceSpan);
+      }
+
+      if(selected && selected.x===x && selected.y===y){
+        cell.classList.add("sel");
+      }
+
+      const m = moves.find(a=>a.tx===x && a.ty===y);
+      if(m){
+        if(board[y][x]) cell.classList.add("cap");
+        else cell.classList.add("move");
+      }
+
+      if(whiteKing && whiteKing.x===x && whiteKing.y===y && inCheck("w", board)){
+        cell.classList.add("check");
+      }
+      if(blackKing && blackKing.x===x && blackKing.y===y && inCheck("b", board)){
+        cell.classList.add("check");
+      }
+
+      cell.onclick = () => playerClick(x,y);
+      boardEl.appendChild(cell);
+    }
+  }
+}
+
+function playerClick(x,y){
+  if(gameOver) return;
+  if(cpuThinking) return;
+  if(turn !== "w") return;
+
+  const p = board[y][x];
+
+  if(selected){
+    const ok = moves.find(m=>m.tx===x && m.ty===y);
+    if(ok){
+      makeMove(board, ok);
+      selected = null;
+      moves = [];
+
+      const result = checkGameEnd("b");
+      if(result){
+        gameOver = result;
+        draw();
+        return;
+      }
+
+      turn = "b";
+      draw();
+
+      cpuThinking = true;
+      setTimeout(cpuMove, 250);
+      return;
+    }
+  }
+
+  selected = null;
+  moves = [];
+
+  if(p && p[0] === "w"){
+    selected = {x,y};
+    moves = getLegalMovesFrom(x,y,board);
+  }
+
+  draw();
+}
+
+function cpuMove(){
+  if(gameOver) return;
+
+  const depth = Number(levelSelect.value);
+  const allMoves = getAllLegalMoves("b", board);
+
+  if(allMoves.length === 0){
+    gameOver = inCheck("b", board) ? "白の勝ち！チェックメイト！" : "引き分け！";
+    cpuThinking = false;
+    draw();
+    return;
+  }
+
+  let bestScore = -Infinity;
+  let bestMoves = [];
+
+  for(const m of allMoves){
+    const newBoard = cloneBoard(board);
+    makeMove(newBoard, m);
+    const score = minimax(newBoard, depth - 1, false, -Infinity, Infinity);
+
+    if(score > bestScore){
+      bestScore = score;
+      bestMoves = [m];
+    }else if(score === bestScore){
+      bestMoves.push(m);
+    }
+  }
+
+  const chosen = bestMoves[Math.floor(Math.random() * bestMoves.length)];
+  makeMove(board, chosen);
+
+  const result = checkGameEnd("w");
+  if(result){
+    gameOver = result;
+  }else{
+    turn = "w";
+  }
+
+  cpuThinking = false;
+  draw();
+}
+
+function minimax(b, depth, isCpuTurn, alpha, beta){
+  if(depth === 0){
+    return evaluateBoard(b);
+  }
+
+  const color = isCpuTurn ? "b" : "w";
+  const legal = getAllLegalMoves(color, b);
+
+  if(legal.length === 0){
+    if(inCheck(color, b)){
+      return isCpuTurn ? -999999 : 999999;
+    }
+    return 0;
+  }
+
+  if(isCpuTurn){
+    let best = -Infinity;
+    for(const m of legal){
+      const nb = cloneBoard(b);
+      makeMove(nb, m);
+      const score = minimax(nb, depth - 1, false, alpha, beta);
+      best = Math.max(best, score);
+      alpha = Math.max(alpha, score);
+      if(beta <= alpha) break;
+    }
+    return best;
+  }else{
+    let best = Infinity;
+    for(const m of legal){
+      const nb = cloneBoard(b);
+      makeMove(nb, m);
+      const score = minimax(nb, depth - 1, true, alpha, beta);
+      best = Math.min(best, score);
+      beta = Math.min(beta, score);
+      if(beta <= alpha) break;
+    }
+    return best;
+  }
+}
+
+function evaluateBoard(b){
+  let score = 0;
+
+  for(let y=0;y<8;y++){
+    for(let x=0;x<8;x++){
+      const p = b[y][x];
+      if(!p) continue;
+
+      const color = p[0];
+      const type = p[1];
+      let v = pieceValue[type];
+
+      const centerBonus = 14 - (Math.abs(3.5 - x) + Math.abs(3.5 - y)) * 3;
+      v += centerBonus;
+
+      if(type === "P"){
+        if(color === "b") v += y * 8;
+        else v += (7 - y) * 8;
+      }
+
+      if(type === "N" || type === "B"){
+        if(color === "b" && y > 1) v += 15;
+        if(color === "w" && y < 6) v += 15;
+      }
+
+      score += color === "b" ? v : -v;
+    }
+  }
+
+  if(inCheck("w", b)) score += 40;
+  if(inCheck("b", b)) score -= 40;
+
+  return score;
+}
+
+function checkGameEnd(nextColor){
+  const legal = getAllLegalMoves(nextColor, board);
+
+  if(legal.length > 0) return null;
+
+  if(inCheck(nextColor, board)){
+    return nextColor === "w" ? "CPUの勝ち！チェックメイト！" : "白の勝ち！チェックメイト！";
+  }
+
+  return "引き分け！";
+}
+
+function getAllLegalMoves(color, b){
+  const result = [];
+
+  for(let y=0;y<8;y++){
+    for(let x=0;x<8;x++){
+      const p = b[y][x];
+      if(p && p[0] === color){
+        const ms = getLegalMovesFrom(x,y,b);
+        for(const m of ms){
+          result.push(m);
+        }
+      }
+    }
+  }
+
+  return result;
+}
+
+function getLegalMovesFrom(x,y,b){
+  const p = b[y][x];
+  if(!p) return [];
+
+  const color = p[0];
+  const raw = getRawMoves(x,y,b);
+  const legal = [];
+
+  for(const m of raw){
+    const nb = cloneBoard(b);
+    makeMove(nb, m);
+    if(!inCheck(color, nb)){
+      legal.push(m);
+    }
+  }
+
+  return legal;
+}
+
+function getRawMoves(x,y,b){
+  const p = b[y][x];
+  if(!p) return [];
+
+  const color = p[0];
+  const type = p[1];
+
+  if(type === "P") return pawnMoves(x,y,color,b);
+  if(type === "R") return lineMoves(x,y,color,b,[[1,0],[-1,0],[0,1],[0,-1]]);
+  if(type === "B") return lineMoves(x,y,color,b,[[1,1],[-1,1],[1,-1],[-1,-1]]);
+  if(type === "Q") return lineMoves(x,y,color,b,[[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]]);
+  if(type === "N") return knightMoves(x,y,color,b);
+  if(type === "K") return kingMoves(x,y,color,b);
+
+  return [];
+}
+
+function pawnMoves(x,y,color,b){
+  const r = [];
+  const dir = color === "w" ? -1 : 1;
+  const start = color === "w" ? 6 : 1;
+
+  const y1 = y + dir;
+  if(inBoard(x,y1) && b[y1][x] === ""){
+    r.push({x,y,tx:x,ty:y1});
+
+    const y2 = y + dir * 2;
+    if(y === start && inBoard(x,y2) && b[y2][x] === ""){
+      r.push({x,y,tx:x,ty:y2});
+    }
+  }
+
+  for(const dx of [-1,1]){
+    const nx = x + dx;
+    const ny = y + dir;
+    if(inBoard(nx,ny)){
+      const t = b[ny][nx];
+      if(t && t[0] !== color){
+        r.push({x,y,tx:nx,ty:ny});
+      }
+    }
+  }
+
+  return r;
+}
+
+function lineMoves(x,y,color,b,dirs){
+  const r = [];
+  for(const d of dirs){
+    let nx = x + d[0];
+    let ny = y + d[1];
+
+    while(inBoard(nx,ny)){
+      const t = b[ny][nx];
+      if(t === ""){
+        r.push({x,y,tx:nx,ty:ny});
+      }else{
+        if(t[0] !== color){
+          r.push({x,y,tx:nx,ty:ny});
+        }
+        break;
+      }
+      nx += d[0];
+      ny += d[1];
+    }
+  }
+  return r;
+}
+
+function knightMoves(x,y,color,b){
+  const r = [];
+  const ps = [
+    [1,2],[2,1],[-1,2],[-2,1],
+    [1,-2],[2,-1],[-1,-2],[-2,-1]
+  ];
+
+  for(const p of ps){
+    const nx = x + p[0];
+    const ny = y + p[1];
+    if(inBoard(nx,ny)){
+      const t = b[ny][nx];
+      if(t === "" || t[0] !== color){
+        r.push({x,y,tx:nx,ty:ny});
+      }
+    }
+  }
+
+  return r;
+}
+
+function kingMoves(x,y,color,b){
+  const r = [];
+  for(let dy=-1;dy<=1;dy++){
+    for(let dx=-1;dx<=1;dx++){
+      if(dx===0 && dy===0) continue;
+      const nx = x + dx;
+      const ny = y + dy;
+      if(inBoard(nx,ny)){
+        const t = b[ny][nx];
+        if(t === "" || t[0] !== color){
+          r.push({x,y,tx:nx,ty:ny});
+        }
+      }
+    }
+  }
+  return r;
+}
+
+function inCheck(color,b){
+  const king = findKing(color,b);
+  if(!king) return true;
+
+  const enemy = color === "w" ? "b" : "w";
+
+  for(let y=0;y<8;y++){
+    for(let x=0;x<8;x++){
+      const p = b[y][x];
+      if(p && p[0] === enemy){
+        const attacks = getRawMovesForAttack(x,y,b);
+        for(const a of attacks){
+          if(a.tx === king.x && a.ty === king.y){
+            return true;
+          }
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
+function getRawMovesForAttack(x,y,b){
+  const p = b[y][x];
+  if(!p) return [];
+
+  const color = p[0];
+  const type = p[1];
+
+  if(type === "P"){
+    const r = [];
+    const dir = color === "w" ? -1 : 1;
+    for(const dx of [-1,1]){
+      const nx = x + dx;
+      const ny = y + dir;
+      if(inBoard(nx,ny)){
+        r.push({x,y,tx:nx,ty:ny});
+      }
+    }
+    return r;
+  }
+
+  return getRawMoves(x,y,b);
+}
+
+function findKing(color,b){
+  const target = color + "K";
+  for(let y=0;y<8;y++){
+    for(let x=0;x<8;x++){
+      if(b[y][x] === target){
+        return {x,y};
+      }
+    }
+  }
+  return null;
+}
+
+function makeMove(b,m){
+  const p = b[m.y][m.x];
+  b[m.ty][m.tx] = p;
+  b[m.y][m.x] = "";
+
+  if(p === "wP" && m.ty === 0) b[m.ty][m.tx] = "wQ";
+  if(p === "bP" && m.ty === 7) b[m.ty][m.tx] = "bQ";
+}
+
+function cloneBoard(b){
+  return b.map(row => row.slice());
+}
+
+function inBoard(x,y){
+  return x>=0 && x<8 && y>=0 && y<8;
+}
+
+resetGame();
+</script>
+
+</body>
+</html>
