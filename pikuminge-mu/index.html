@@ -1,1 +1,695 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>学習ピクミン風 完結修正版</title>
+<style>
+body{
+  margin:0;
+  overflow:hidden;
+  font-family:"Yu Gothic",sans-serif;
+  background:#74c66b;
+}
+canvas{
+  display:block;
+}
+.box{
+  position:fixed;
+  background:rgba(255,255,255,.92);
+  padding:10px;
+  border-radius:12px;
+  box-shadow:0 4px 12px rgba(0,0,0,.25);
+  z-index:5;
+}
+#ui{
+  left:10px;
+  top:10px;
+}
+#quiz{
+  right:10px;
+  top:10px;
+  width:280px;
+}
+input,button{
+  width:100%;
+  font-size:18px;
+  margin-top:6px;
+  padding:7px;
+  box-sizing:border-box;
+}
+#clear,#over{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.75);
+  color:white;
+  text-align:center;
+  font-size:42px;
+  padding-top:170px;
+  z-index:20;
+}
+#clear button,#over button{
+  width:220px;
+  font-size:24px;
+  padding:10px;
+}
+</style>
+</head>
+<body>
 
+<canvas id="c"></canvas>
+
+<div id="ui" class="box">
+  <b>学習ピクミン風 完結修正版</b><br>
+  移動：WASD / 矢印<br>
+  クリック：ピクミンを投げる<br>
+  F：笛で呼び戻す<br>
+  仲間：<span id="num">0</span><br>
+  敵HP：<span id="hp">100</span><br>
+  倒した敵：<span id="defeated">0</span> / 3体<br>
+  <span id="state">敵を3体倒そう！</span>
+</div>
+
+<div id="quiz" class="box">
+  <b>正解でピクミン追加</b>
+  <p id="q"></p>
+  <input id="ans" placeholder="答え">
+  <button id="answerBtn">答える</button>
+  <p id="msg"></p>
+</div>
+
+<div id="clear">
+  🎉 GAME CLEAR 🎉<br>
+  3体の敵をたおした！<br>
+  <button onclick="location.reload()">もう一回</button>
+</div>
+
+<div id="over">
+  💀 GAME OVER 💀<br>
+  ピクミンが全滅した...<br>
+  <button onclick="location.reload()">もう一回</button>
+</div>
+
+<script>
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+
+const el = {
+  num: document.getElementById("num"),
+  hp: document.getElementById("hp"),
+  defeated: document.getElementById("defeated"),
+  state: document.getElementById("state"),
+  q: document.getElementById("q"),
+  ans: document.getElementById("ans"),
+  msg: document.getElementById("msg"),
+  clear: document.getElementById("clear"),
+  over: document.getElementById("over"),
+  answerBtn: document.getElementById("answerBtn")
+};
+
+function resize(){
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener("resize", resize);
+
+const keys = {};
+
+window.addEventListener("keydown", e=>{
+  keys[e.key] = true;
+
+  if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.key)){
+    e.preventDefault();
+  }
+
+  if(e.key === "Enter"){
+    checkAnswer();
+  }
+
+  if(e.key === "f" || e.key === "F"){
+    whistle();
+  }
+});
+
+window.addEventListener("keyup", e=>{
+  keys[e.key] = false;
+});
+
+el.answerBtn.addEventListener("click", checkAnswer);
+
+let gameState = "play";
+let defeatedCount = 0;
+const maxBossCount = 3;
+
+const player = {
+  x:300,
+  y:360,
+  r:18,
+  speed:3.6
+};
+
+const boss = {
+  x:800,
+  y:360,
+  r:42,
+  hp:100,
+  maxHp:100,
+  active:true,
+  dir:0,
+  speed:0.85,
+  eatCooldown:0,
+  eatingEffect:0
+};
+
+let pikmins = [];
+let particles = [];
+
+const questions = [
+  ["5×6", "30"],
+  ["12÷3", "4"],
+  ["7+8", "15"],
+  ["10×9", "90"],
+  ["9×8", "72"],
+  ["6×7", "42"],
+  ["100-37", "63"],
+  ["25+48", "73"],
+  ["81÷9", "9"],
+  ["64÷8", "8"],
+  ["日本の首都をひらがなで", "とうきょう"],
+  ["犬をひらがなで", "いぬ"],
+  ["猫をひらがなで", "ねこ"],
+  ["地球の衛星をひらがなで", "つき"],
+  ["水がこおったもの", "こおり"],
+  ["春夏秋冬、春の前は", "ふゆ"],
+  ["appleの日本語", "りんご"],
+  ["redの日本語", "あか"],
+  ["blueの日本語", "あお"]
+];
+
+let currentQuestion = null;
+
+function updateUI(){
+  el.num.textContent = pikmins.length;
+  el.hp.textContent = boss.hp + " / " + boss.maxHp;
+  el.defeated.textContent = defeatedCount;
+}
+
+function addPikmin(){
+  pikmins.push({
+    x: player.x + Math.random() * 50 - 25,
+    y: player.y + Math.random() * 50 - 25,
+    tx: player.x,
+    ty: player.y,
+    state: "follow",
+    color: ["red","yellow","blue"][Math.floor(Math.random() * 3)],
+    attackTimer: 0,
+    shake:0
+  });
+
+  updateUI();
+}
+
+function nextQuestion(){
+  currentQuestion = questions[Math.floor(Math.random() * questions.length)];
+  el.q.textContent = currentQuestion[0];
+  el.ans.value = "";
+}
+
+function checkAnswer(){
+  if(gameState !== "play" || !currentQuestion) return;
+
+  const answer = el.ans.value.trim();
+
+  if(answer === currentQuestion[1]){
+    addPikmin();
+    el.msg.textContent = "正解！ピクミンが増えた！";
+    nextQuestion();
+  }else{
+    el.msg.textContent = "ちがう！もう一回！";
+  }
+}
+
+function spawnBoss(){
+  defeatedCount++;
+
+  if(defeatedCount >= maxBossCount){
+    gameState = "clear";
+    el.state.textContent = "3体倒した！ゲームクリア！";
+    el.clear.style.display = "block";
+    updateUI();
+    return;
+  }
+
+  boss.maxHp = 100 + defeatedCount * 35;
+  boss.hp = boss.maxHp;
+
+  boss.r = 42 + defeatedCount * 4;
+  boss.speed = 0.85 + defeatedCount * 0.12;
+
+  boss.x = canvas.width - 180;
+  boss.y = canvas.height / 2;
+
+  boss.dir = Math.random() * Math.PI * 2;
+  boss.eatCooldown = 80;
+  boss.eatingEffect = 0;
+  boss.active = true;
+
+  el.state.textContent = defeatedCount + "体倒した！次の敵が来た！";
+  el.msg.textContent = "あと " + (maxBossCount - defeatedCount) + "体！";
+
+  for(const p of pikmins){
+    p.state = "follow";
+    p.attackTimer = 0;
+  }
+
+  updateUI();
+}
+
+window.addEventListener("click", e=>{
+  if(gameState !== "play") return;
+  if(e.target.closest("#quiz")) return;
+  if(e.target.closest("#ui")) return;
+  if(e.target.tagName === "BUTTON") return;
+
+  const p = pikmins.find(m => m.state === "follow");
+  if(!p) return;
+
+  p.state = "throw";
+  p.tx = e.clientX;
+  p.ty = e.clientY;
+  p.attackTimer = 0;
+});
+
+function whistle(){
+  if(gameState !== "play") return;
+
+  for(const p of pikmins){
+    p.state = "follow";
+    p.attackTimer = 0;
+  }
+
+  el.msg.textContent = "ピーッ！ピクミンを呼び戻した！";
+}
+
+function updatePlayer(){
+  if(keys["ArrowUp"] || keys["w"] || keys["W"]){
+    player.y -= player.speed;
+  }
+
+  if(keys["ArrowDown"] || keys["s"] || keys["S"]){
+    player.y += player.speed;
+  }
+
+  if(keys["ArrowLeft"] || keys["a"] || keys["A"]){
+    player.x -= player.speed;
+  }
+
+  if(keys["ArrowRight"] || keys["d"] || keys["D"]){
+    player.x += player.speed;
+  }
+
+  player.x = Math.max(player.r, Math.min(canvas.width - player.r, player.x));
+  player.y = Math.max(player.r + 70, Math.min(canvas.height - player.r, player.y));
+}
+
+function findNearestPikmin(){
+  let nearest = null;
+  let nearestDist = Infinity;
+
+  for(const p of pikmins){
+    const d = Math.hypot(p.x - boss.x, p.y - boss.y);
+
+    if(d < nearestDist){
+      nearestDist = d;
+      nearest = p;
+    }
+  }
+
+  return {
+    pikmin: nearest,
+    distance: nearestDist
+  };
+}
+
+function updateBoss(){
+  if(!boss.active || boss.hp <= 0) return;
+
+  const found = findNearestPikmin();
+
+  if(found.pikmin && found.distance < 420){
+    const target = found.pikmin;
+    const angle = Math.atan2(target.y - boss.y, target.x - boss.x);
+
+    boss.x += Math.cos(angle) * boss.speed;
+    boss.y += Math.sin(angle) * boss.speed;
+    boss.dir = angle;
+
+    el.state.textContent = "敵がピクミンに近づいている！";
+  }else{
+    boss.dir += (Math.random() - 0.5) * 0.05;
+    boss.x += Math.cos(boss.dir) * boss.speed * 0.55;
+    boss.y += Math.sin(boss.dir) * boss.speed * 0.55;
+  }
+
+  if(boss.x < 70 || boss.x > canvas.width - 70){
+    boss.dir = Math.PI - boss.dir;
+  }
+
+  if(boss.y < 100 || boss.y > canvas.height - 70){
+    boss.dir = -boss.dir;
+  }
+
+  boss.x = Math.max(70, Math.min(canvas.width - 70, boss.x));
+  boss.y = Math.max(100, Math.min(canvas.height - 70, boss.y));
+
+  if(boss.eatCooldown > 0){
+    boss.eatCooldown--;
+  }
+
+  if(boss.eatingEffect > 0){
+    boss.eatingEffect--;
+  }
+}
+
+function makeEatParticles(x, y, color){
+  for(let i = 0; i < 10; i++){
+    particles.push({
+      x:x,
+      y:y,
+      vx:Math.random() * 4 - 2,
+      vy:Math.random() * 4 - 2,
+      life:25,
+      color:color
+    });
+  }
+}
+
+function updateParticles(){
+  for(let i = particles.length - 1; i >= 0; i--){
+    const p = particles[i];
+
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.04;
+    p.life--;
+
+    if(p.life <= 0){
+      particles.splice(i, 1);
+    }
+  }
+}
+
+function updatePikmins(){
+  for(let i = pikmins.length - 1; i >= 0; i--){
+    const p = pikmins[i];
+
+    if(p.state === "follow"){
+      const angle = i * 0.7;
+      const distance = 42 + i * 4;
+
+      p.tx = player.x - Math.cos(angle) * distance;
+      p.ty = player.y + Math.sin(angle) * distance;
+    }
+
+    if(p.state === "throw"){
+      if(boss.active && boss.hp > 0){
+        const d = Math.hypot(boss.x - p.x, boss.y - p.y);
+
+        if(d < boss.r + 14){
+          p.state = "attack";
+          p.attackTimer = 0;
+        }
+      }
+
+      if(Math.hypot(p.tx - p.x, p.ty - p.y) < 8){
+        p.state = "follow";
+      }
+    }
+
+    if(p.state === "attack"){
+      const angle = i * 1.4;
+
+      p.tx = boss.x + Math.cos(angle) * (boss.r + 12);
+      p.ty = boss.y + Math.sin(angle) * (boss.r + 12);
+
+      p.attackTimer++;
+
+      if(p.attackTimer % 18 === 0 && boss.hp > 0){
+        boss.hp = Math.max(0, boss.hp - 3);
+        p.shake = 5;
+        updateUI();
+      }
+    }
+
+    p.x += (p.tx - p.x) * 0.14;
+    p.y += (p.ty - p.y) * 0.14;
+
+    if(p.shake > 0){
+      p.shake--;
+    }
+
+    if(boss.active && boss.hp > 0 && boss.eatCooldown <= 0){
+      const d = Math.hypot(boss.x - p.x, boss.y - p.y);
+
+      if(d < boss.r - 10){
+        makeEatParticles(p.x, p.y, p.color);
+        pikmins.splice(i, 1);
+
+        boss.eatCooldown = 80;
+        boss.eatingEffect = 18;
+
+        el.msg.textContent = "ピクミンが食べられた！";
+        updateUI();
+      }
+    }
+  }
+}
+
+function checkEnd(){
+  if(gameState !== "play") return;
+
+  if(boss.active && boss.hp <= 0){
+    spawnBoss();
+    return;
+  }
+
+  if(pikmins.length <= 0){
+    gameState = "over";
+    el.state.textContent = "ピクミンが全滅した...";
+    el.over.style.display = "block";
+  }
+}
+
+function update(){
+  if(gameState !== "play") return;
+
+  updatePlayer();
+  updateBoss();
+  updatePikmins();
+  updateParticles();
+  checkEnd();
+}
+
+function drawBackground(){
+  ctx.fillStyle = "#74c66b";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  for(let i = 0; i < 130; i++){
+    ctx.fillStyle = "rgba(47,143,47,0.35)";
+    ctx.fillRect((i * 79) % canvas.width, (i * 47) % canvas.height, 4, 20);
+  }
+
+  ctx.fillStyle = "rgba(255,255,255,0.15)";
+  ctx.beginPath();
+  ctx.arc(canvas.width - 120, 100, 55, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawBoss(){
+  if(!boss.active || boss.hp <= 0) return;
+
+  const mouthScale = boss.eatingEffect > 0 ? 1.6 : 1;
+  const bodyShake = boss.eatingEffect > 0 ? Math.sin(Date.now() / 40) * 3 : 0;
+
+  const bx = boss.x + bodyShake;
+  const by = boss.y;
+
+  ctx.fillStyle = "rgba(0,0,0,0.25)";
+  ctx.beginPath();
+  ctx.ellipse(bx, by + boss.r * 0.8, boss.r + 6, 16, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#6b3f22";
+  ctx.beginPath();
+  ctx.arc(bx, by, boss.r, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#a86432";
+  ctx.beginPath();
+  ctx.arc(bx, by + 10, boss.r * 0.62, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "white";
+  ctx.beginPath();
+  ctx.arc(bx - boss.r * 0.33, by - boss.r * 0.33, 9, 0, Math.PI * 2);
+  ctx.arc(bx + boss.r * 0.33, by - boss.r * 0.33, 9, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "black";
+  ctx.beginPath();
+  ctx.arc(bx - boss.r * 0.33, by - boss.r * 0.33, 4, 0, Math.PI * 2);
+  ctx.arc(bx + boss.r * 0.33, by - boss.r * 0.33, 4, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#2b1208";
+  ctx.beginPath();
+  ctx.ellipse(
+    bx,
+    by + boss.r * 0.38,
+    boss.r * 0.45 * mouthScale,
+    boss.r * 0.23 * mouthScale,
+    0,
+    0,
+    Math.PI * 2
+  );
+  ctx.fill();
+
+  ctx.fillStyle = "#4a2816";
+  ctx.beginPath();
+  ctx.ellipse(bx - boss.r * 0.52, by + boss.r * 0.9, 16, 8, 0, 0, Math.PI * 2);
+  ctx.ellipse(bx + boss.r * 0.52, by + boss.r * 0.9, 16, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "red";
+  ctx.fillRect(bx - 50, by - boss.r - 28, 100, 10);
+
+  ctx.fillStyle = "lime";
+  ctx.fillRect(
+    bx - 50,
+    by - boss.r - 28,
+    100 * (boss.hp / boss.maxHp),
+    10
+  );
+
+  ctx.strokeStyle = "black";
+  ctx.strokeRect(bx - 50, by - boss.r - 28, 100, 10);
+
+  ctx.fillStyle = "black";
+  ctx.font = "14px Yu Gothic";
+  ctx.textAlign = "center";
+  ctx.fillText("敵 " + (defeatedCount + 1) + "体目", bx, by - boss.r - 35);
+}
+
+function drawPlayer(){
+  ctx.fillStyle = "rgba(0,0,0,0.25)";
+  ctx.beginPath();
+  ctx.ellipse(player.x, player.y + 16, 22, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#276bff";
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "white";
+  ctx.beginPath();
+  ctx.arc(player.x - 6, player.y - 5, 4, 0, Math.PI * 2);
+  ctx.arc(player.x + 6, player.y - 5, 4, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "black";
+  ctx.beginPath();
+  ctx.arc(player.x - 6, player.y - 5, 2, 0, Math.PI * 2);
+  ctx.arc(player.x + 6, player.y - 5, 2, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawPikmins(){
+  for(const p of pikmins){
+    const sx = p.shake > 0 ? Math.random() * 4 - 2 : 0;
+    const sy = p.shake > 0 ? Math.random() * 4 - 2 : 0;
+
+    const px = p.x + sx;
+    const py = p.y + sy;
+
+    ctx.fillStyle = "rgba(0,0,0,0.22)";
+    ctx.beginPath();
+    ctx.ellipse(px, py + 8, 10, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = "#164d16";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(px, py - 8);
+    ctx.lineTo(px, py - 23);
+    ctx.stroke();
+
+    ctx.fillStyle = "#49b44a";
+    ctx.beginPath();
+    ctx.ellipse(px, py - 26, 8, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(px, py, 9, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "white";
+    ctx.beginPath();
+    ctx.arc(px - 3, py - 2, 2, 0, Math.PI * 2);
+    ctx.arc(px + 3, py - 2, 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    if(p.state === "attack"){
+      ctx.strokeStyle = "orange";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(px, py, 13, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+}
+
+function drawParticles(){
+  for(const p of particles){
+    ctx.globalAlpha = p.life / 25;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+}
+
+function draw(){
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  drawBackground();
+  drawBoss();
+  drawPlayer();
+  drawPikmins();
+  drawParticles();
+}
+
+function loop(){
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+for(let i = 0; i < 7; i++){
+  addPikmin();
+}
+
+boss.x = canvas.width - 180;
+boss.y = canvas.height / 2;
+boss.hp = boss.maxHp;
+boss.eatCooldown = 80;
+
+nextQuestion();
+updateUI();
+loop();
+</script>
+</body>
+</html>
