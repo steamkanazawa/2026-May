@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>ストップウォッチ</title>
+
+  <style>
+    body {
+      background: #222;
+      color: white;
+      text-align: center;
+      font-family: sans-serif;
+      margin-top: 100px;
+    }
+
+    h1 {
+      font-size: 60px;
+    }
+
+    button {
+      font-size: 20px;
+      padding: 10px 20px;
+      margin: 10px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    .start {
+      background: #00cc66;
+      color: white;
+    }
+
+    .stop {
+      background: #ff4444;
+      color: white;
+    }
+
+    .reset {
+      background: #4488ff;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+
+<h1 id="display">0.0</h1>
+
+<button class="start" onclick="startTimer()">
+  スタート
+</button>
+
+<button class="stop" onclick="stopTimer()">
+  ストップ
+</button>
+
+<button class="reset" onclick="resetTimer()">
+  リセット
+</button>
+
+<script>
+
+let time = 0;
+let timer = null;
+
+function updateDisplay() {
+  document.getElementById("display").textContent =
+    time.toFixed(1);
+}
+
+function startTimer() {
+
+  // 二重起動防止
+  if (timer !== null) return;
+
+  timer = setInterval(() => {
+    time += 0.1;
+    updateDisplay();
+  }, 100);
+}
+
+function stopTimer() {
+  clearInterval(timer);
+  timer = null;
+}
+
+function resetTimer() {
+  stopTimer();
+  time = 0;
+  updateDisplay();
+}
+
+</script>
+
+</body>
+</html>

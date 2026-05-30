@@ -1,0 +1,512 @@
+{
+  "survival": [
+    {
+      "at": 1780136100848,
+      "status": "outage"
+    },
+    {
+      "at": 1780136160849,
+      "status": "outage"
+    },
+    {
+      "at": 1780136197305,
+      "status": "outage"
+    },
+    {
+      "at": 1780136226521,
+      "status": "outage"
+    },
+    {
+      "at": 1780136246488,
+      "status": "outage"
+    },
+    {
+      "at": 1780136246912,
+      "status": "outage"
+    },
+    {
+      "at": 1780136247125,
+      "status": "outage"
+    },
+    {
+      "at": 1780136247256,
+      "status": "outage"
+    },
+    {
+      "at": 1780136247411,
+      "status": "outage"
+    },
+    {
+      "at": 1780136247796,
+      "status": "outage"
+    },
+    {
+      "at": 1780136248028,
+      "status": "outage"
+    },
+    {
+      "at": 1780136248493,
+      "status": "outage"
+    },
+    {
+      "at": 1780136249831,
+      "status": "outage"
+    },
+    {
+      "at": 1780136257342,
+      "status": "outage"
+    },
+    {
+      "at": 1780136317337,
+      "status": "outage"
+    },
+    {
+      "at": 1780136351678,
+      "status": "outage"
+    },
+    {
+      "at": 1780136411728,
+      "status": "outage"
+    },
+    {
+      "at": 1780136471760,
+      "status": "outage"
+    },
+    {
+      "at": 1780136531768,
+      "status": "outage"
+    },
+    {
+      "at": 1780136539452,
+      "status": "outage"
+    },
+    {
+      "at": 1780136539779,
+      "status": "outage"
+    },
+    {
+      "at": 1780136539960,
+      "status": "outage"
+    },
+    {
+      "at": 1780136540294,
+      "status": "outage"
+    },
+    {
+      "at": 1780136540482,
+      "status": "outage"
+    },
+    {
+      "at": 1780136540691,
+      "status": "outage"
+    },
+    {
+      "at": 1780136540841,
+      "status": "outage"
+    },
+    {
+      "at": 1780136541093,
+      "status": "outage"
+    },
+    {
+      "at": 1780136541225,
+      "status": "outage"
+    },
+    {
+      "at": 1780136541408,
+      "status": "outage"
+    },
+    {
+      "at": 1780136591732,
+      "status": "outage"
+    },
+    {
+      "at": 1780136651774,
+      "status": "outage"
+    },
+    {
+      "at": 1780136711786,
+      "status": "outage"
+    },
+    {
+      "at": 1780136771819,
+      "status": "outage"
+    },
+    {
+      "at": 1780136831825,
+      "status": "outage"
+    },
+    {
+      "at": 1780136891847,
+      "status": "outage"
+    },
+    {
+      "at": 1780136951895,
+      "status": "outage"
+    },
+    {
+      "at": 1780137011907,
+      "status": "outage"
+    },
+    {
+      "at": 1780137071952,
+      "status": "outage"
+    },
+    {
+      "at": 1780137131967,
+      "status": "outage"
+    },
+    {
+      "at": 1780137191980,
+      "status": "outage"
+    },
+    {
+      "at": 1780137252065,
+      "status": "operational"
+    },
+    {
+      "at": 1780137311986,
+      "status": "operational"
+    },
+    {
+      "at": 1780137371994,
+      "status": "operational"
+    },
+    {
+      "at": 1780137432001,
+      "status": "operational"
+    },
+    {
+      "at": 1780137492007,
+      "status": "operational"
+    },
+    {
+      "at": 1780137552007,
+      "status": "operational"
+    },
+    {
+      "at": 1780137612018,
+      "status": "operational"
+    },
+    {
+      "at": 1780137672036,
+      "status": "operational"
+    }
+  ],
+  "lobby": [
+    {
+      "at": 1780136100848,
+      "status": "operational"
+    },
+    {
+      "at": 1780136160849,
+      "status": "operational"
+    },
+    {
+      "at": 1780136197305,
+      "status": "operational"
+    },
+    {
+      "at": 1780136226521,
+      "status": "operational"
+    },
+    {
+      "at": 1780136246488,
+      "status": "operational"
+    },
+    {
+      "at": 1780136246912,
+      "status": "operational"
+    },
+    {
+      "at": 1780136247125,
+      "status": "operational"
+    },
+    {
+      "at": 1780136247256,
+      "status": "operational"
+    },
+    {
+      "at": 1780136247411,
+      "status": "operational"
+    },
+    {
+      "at": 1780136247796,
+      "status": "operational"
+    },
+    {
+      "at": 1780136248028,
+      "status": "operational"
+    },
+    {
+      "at": 1780136248493,
+      "status": "operational"
+    },
+    {
+      "at": 1780136249831,
+      "status": "operational"
+    },
+    {
+      "at": 1780136257342,
+      "status": "operational"
+    },
+    {
+      "at": 1780136317337,
+      "status": "operational"
+    },
+    {
+      "at": 1780136351678,
+      "status": "operational"
+    },
+    {
+      "at": 1780136411728,
+      "status": "operational"
+    },
+    {
+      "at": 1780136471760,
+      "status": "operational"
+    },
+    {
+      "at": 1780136531768,
+      "status": "operational"
+    },
+    {
+      "at": 1780136539452,
+      "status": "operational"
+    },
+    {
+      "at": 1780136539779,
+      "status": "operational"
+    },
+    {
+      "at": 1780136539960,
+      "status": "operational"
+    },
+    {
+      "at": 1780136540294,
+      "status": "operational"
+    },
+    {
+      "at": 1780136540482,
+      "status": "operational"
+    },
+    {
+      "at": 1780136540691,
+      "status": "operational"
+    },
+    {
+      "at": 1780136540841,
+      "status": "operational"
+    },
+    {
+      "at": 1780136541093,
+      "status": "operational"
+    },
+    {
+      "at": 1780136541225,
+      "status": "operational"
+    },
+    {
+      "at": 1780136541408,
+      "status": "operational"
+    },
+    {
+      "at": 1780136591732,
+      "status": "operational"
+    },
+    {
+      "at": 1780136651774,
+      "status": "operational"
+    },
+    {
+      "at": 1780136711786,
+      "status": "operational"
+    },
+    {
+      "at": 1780136771819,
+      "status": "operational"
+    },
+    {
+      "at": 1780136831825,
+      "status": "operational"
+    },
+    {
+      "at": 1780136891847,
+      "status": "operational"
+    },
+    {
+      "at": 1780136951895,
+      "status": "operational"
+    },
+    {
+      "at": 1780137011907,
+      "status": "operational"
+    },
+    {
+      "at": 1780137071952,
+      "status": "operational"
+    },
+    {
+      "at": 1780137131967,
+      "status": "operational"
+    },
+    {
+      "at": 1780137191980,
+      "status": "operational"
+    },
+    {
+      "at": 1780137252065,
+      "status": "operational"
+    },
+    {
+      "at": 1780137311986,
+      "status": "operational"
+    },
+    {
+      "at": 1780137371994,
+      "status": "operational"
+    },
+    {
+      "at": 1780137432001,
+      "status": "operational"
+    },
+    {
+      "at": 1780137492007,
+      "status": "operational"
+    },
+    {
+      "at": 1780137552007,
+      "status": "operational"
+    },
+    {
+      "at": 1780137612018,
+      "status": "operational"
+    },
+    {
+      "at": 1780137672036,
+      "status": "operational"
+    }
+  ],
+  "proxy": [
+    {
+      "at": 1780136531768,
+      "status": "operational"
+    },
+    {
+      "at": 1780136539452,
+      "status": "operational"
+    },
+    {
+      "at": 1780136539779,
+      "status": "operational"
+    },
+    {
+      "at": 1780136539960,
+      "status": "operational"
+    },
+    {
+      "at": 1780136540294,
+      "status": "operational"
+    },
+    {
+      "at": 1780136540482,
+      "status": "operational"
+    },
+    {
+      "at": 1780136540691,
+      "status": "operational"
+    },
+    {
+      "at": 1780136540841,
+      "status": "operational"
+    },
+    {
+      "at": 1780136541093,
+      "status": "operational"
+    },
+    {
+      "at": 1780136541225,
+      "status": "operational"
+    },
+    {
+      "at": 1780136541408,
+      "status": "operational"
+    },
+    {
+      "at": 1780136591732,
+      "status": "operational"
+    },
+    {
+      "at": 1780136651774,
+      "status": "operational"
+    },
+    {
+      "at": 1780136711786,
+      "status": "operational"
+    },
+    {
+      "at": 1780136771819,
+      "status": "operational"
+    },
+    {
+      "at": 1780136831825,
+      "status": "operational"
+    },
+    {
+      "at": 1780136891847,
+      "status": "operational"
+    },
+    {
+      "at": 1780136951895,
+      "status": "operational"
+    },
+    {
+      "at": 1780137011907,
+      "status": "operational"
+    },
+    {
+      "at": 1780137071952,
+      "status": "operational"
+    },
+    {
+      "at": 1780137131967,
+      "status": "operational"
+    },
+    {
+      "at": 1780137191980,
+      "status": "operational"
+    },
+    {
+      "at": 1780137252065,
+      "status": "operational"
+    },
+    {
+      "at": 1780137311986,
+      "status": "operational"
+    },
+    {
+      "at": 1780137371994,
+      "status": "operational"
+    },
+    {
+      "at": 1780137432001,
+      "status": "operational"
+    },
+    {
+      "at": 1780137492007,
+      "status": "operational"
+    },
+    {
+      "at": 1780137552007,
+      "status": "operational"
+    },
+    {
+      "at": 1780137612018,
+      "status": "operational"
+    },
+    {
+      "at": 1780137672036,
+      "status": "operational"
+    }
+  ]
+}

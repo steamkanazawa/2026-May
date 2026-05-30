@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>特殊将棋 AI対戦 完全版</title>
+<style>
+body{font-family:sans-serif;text-align:center;background:#222;color:white}
+#board{display:grid;grid-template-columns:repeat(9,60px);width:540px;margin:20px auto}
+.cell{width:60px;height:60px;background:#d6a85c;border:1px solid #653b16;font-size:24px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.selected{background:#facc15}
+.trap{box-shadow:inset 0 0 0 5px red}
+.heal{box-shadow:inset 0 0 0 5px lime}
+.warp{box-shadow:inset 0 0 0 5px cyan}
+button{font-size:18px;margin:5px;padding:8px}
+</style>
+</head>
+<body>
+
+<h1>特殊将棋 AI対戦</h1>
+<p>あなたは先手。王を取ったら勝ち！ 歩は敵陣に入ると「と金」になります。</p>
+
+<div id="info"></div>
+
+<button onclick="useSkill('teleport')">瞬間移動</button>
+<button onclick="useSkill('barrier')">結界</button>
+<button onclick="useSkill('power')">強化</button>
+
+<div id="board"></div>
+
+<script>
+const boardEl=document.getElementById("board");
+const info=document.getElementById("info");
+
+let turn="先手";
+let selected=null;
+let skillMode=null;
+let turnCount={先手:0,後手:0};
+let powered=null;
+let barrier=null;
+let aiThinking=false;
+
+let board=[
+  ["香","桂","銀","金","王","金","銀","桂","香"],
+  ["","飛","","","","","","角",""],
+  ["歩","歩","歩","歩","歩","歩","歩","歩","歩"],
+  ["","","","","","","","",""],
+  ["","","","","","","","",""],
+  ["","","","","","","","",""],
+  ["歩","歩","歩","歩","歩","歩","歩","歩","歩"],
+  ["","角","","","","","","飛",""],
+  ["香","桂","銀","金","王","金","銀","桂","香"]
+];
+
+let owners=[
+  ["後手","後手","後手","後手","後手","後手","後手","後手","後手"],
+  ["","後手","","","","","","後手",""],
+  ["後手","後手","後手","後手","後手","後手","後手","後手","後手"],
+  ["","","","","","","","",""],
+  ["","","","","","","","",""],
+  ["","","","","","","","",""],
+  ["先手","先手","先手","先手","先手","先手","先手","先手","先手"],
+  ["","先手","","","","","","先手",""],
+  ["先手","先手","先手","先手","先手","先手","先手","先手","先手"]
+];
+
+let traps=[
+  {x:2,y:2,type:"trap"},
+  {x:6,y:6,type:"trap"},
+  {x:4,y:4,type:"heal"},
+  {x:1,y:7,type:"warp"},
+  {x:7,y:1,type:"warp"}
+];
+
+function draw(){
+  boardEl.innerHTML="";
+
+  for(let y=0;y<9;y++){
+    for(let x=0;x<9;x++){
+      const cell=document.createElement("div");
+      cell.className="cell";
+
+      const t=traps.find(a=>a.x===x&&a.y===y);
+      if(t)cell.classList.add(t.type);
+
+      if(barrier&&barrier.x===x&&barrier.y===y){
+        cell.style.background="#555";
+      }
+
+      if(selected&&selected.x===x&&selected.y===y){
+        cell.classList.add("selected");
+      }
+
+      if(board[y][x]){
+        cell.textContent=owners[y][x]==="後手" ? "▽"+board[y][x] : "▲"+board[y][x];
+      }
+
+      cell.onclick=()=>clickCell(x,y);
+      boardEl.appendChild(cell);
+    }
+  }
+
+  info.innerHTML=
+    `手番：${turn} ${turn==="後手"?"AI思考中":""}<br>`+
+    `スキルまで：${Math.max(0,3-turnCount.先手)}ターン`;
+}
+
+function clickCell(x,y){
+  if(turn!=="先手"||aiThinking)return;
+
+  if(skillMode==="teleport"){
+    teleport(x,y);
+    return;
+  }
+
+  if(skillMode==="barrier"){
+    barrier={x,y,life:1};
+    skillMode=null;
+    turnCount.先手=0;
+    endTurn();
+    return;
+  }
+
+  if(!selected){
+    if(board[y][x]&&owners[y][x]==="先手"){
+      selected={x,y};
+    }
+  }else{
+    move(selected.x,selected.y,x,y);
+    selected=null;
+  }
+
+  draw();
+}
+
+function move(sx,sy,tx,ty){
+  if(tx<0||tx>8||ty<0||ty>8)return;
+
+  if(barrier&&barrier.x===tx&&barrier.y===ty){
+    alert("結界マスには入れません！");
+    return;
+  }
+
+  if(!canMove(sx,sy,tx,ty)){
+    if(turn==="先手")alert("その動きはできません！");
+    return;
+  }
+
+  if(owners[ty][tx]===turn)return;
+
+  if(board[ty][tx]==="王"){
+    alert(turn+"の勝ち！");
+    location.reload();
+    return;
+  }
+
+  board[ty][tx]=board[sy][sx];
+  owners[ty][tx]=owners[sy][sx];
+  board[sy][sx]="";
+  owners[sy][sx]="";
+
+  promote(tx,ty);
+  activateTrap(tx,ty);
+
+  endTurn();
+}
+
+function promote(x,y){
+  if(board[y][x]==="歩"){
+    if(owners[y][x]==="先手" && y<=2){
+      board[y][x]="と";
+    }
+    if(owners[y][x]==="後手" && y>=6){
+      board[y][x]="と";
+    }
+  }
+}
+
+function canMove(sx,sy,tx,ty){
+  const piece=board[sy][sx];
+  if(!piece)return false;
+
+  const dx=tx-sx;
+  const dy=ty-sy;
+  const owner=owners[sy][sx];
+  const dir=owner==="先手" ? -1 : 1;
+
+  if(powered&&powered.x===sx&&powered.y===sy){
+    return Math.abs(dx)<=1&&Math.abs(dy)<=1;
+  }
+
+  if(piece==="歩")return dx===0&&dy===dir;
+  if(piece==="と")return goldMove(dx,dy,dir);
+  if(piece==="王")return Math.abs(dx)<=1&&Math.abs(dy)<=1;
+  if(piece==="金")return goldMove(dx,dy,dir);
+  if(piece==="銀")return Math.abs(dx)<=1&&Math.abs(dy)<=1&&!(dx===0&&dy===-dir)&&!(Math.abs(dx)===1&&dy===0);
+  if(piece==="桂")return Math.abs(dx)===1&&dy===dir*2;
+  if(piece==="香")return dx===0&&dy*dir>0&&clearLine(sx,sy,tx,ty);
+  if(piece==="飛")return (dx===0||dy===0)&&clearLine(sx,sy,tx,ty);
+  if(piece==="角")return Math.abs(dx)===Math.abs(dy)&&clearLine(sx,sy,tx,ty);
+
+  return false;
+}
+
+function goldMove(dx,dy,dir){
+  return Math.abs(dx)<=1 &&
+         Math.abs(dy)<=1 &&
+         !(Math.abs(dx)===1 && dy===-dir);
+}
+
+function clearLine(sx,sy,tx,ty){
+  const dx=Math.sign(tx-sx);
+  const dy=Math.sign(ty-sy);
+  let x=sx+dx;
+  let y=sy+dy;
+
+  while(x!==tx||y!==ty){
+    if(board[y][x])return false;
+    x+=dx;
+    y+=dy;
+  }
+
+  return true;
+}
+
+function activateTrap(x,y){
+  const t=traps.find(a=>a.x===x&&a.y===y);
+  if(!t)return;
+
+  if(t.type==="trap"){
+    alert("炎の罠！ 1ターン損！");
+  }
+
+  if(t.type==="heal"){
+    alert("回復マス！ スキルカウント+1！");
+    turnCount[turn]++;
+  }
+
+  if(t.type==="warp"){
+    const other=traps.find(a=>a.type==="warp"&&(a.x!==x||a.y!==y));
+
+    if(other&&!board[other.y][other.x]){
+      board[other.y][other.x]=board[y][x];
+      owners[other.y][other.x]=owners[y][x];
+      board[y][x]="";
+      owners[y][x]="";
+      alert("ワープ！");
+    }
+  }
+}
+
+function useSkill(type){
+  if(turn!=="先手"||aiThinking)return;
+
+  if(turnCount.先手<3){
+    alert("スキルは3ターンごとに使えます！");
+    return;
+  }
+
+  if(type==="teleport"){
+    skillMode="teleport";
+    selected=null;
+    alert("自分の駒を選んでから、空きマスを選んでください。");
+  }
+
+  if(type==="barrier"){
+    skillMode="barrier";
+    alert("結界を置くマスをクリック！");
+  }
+
+  if(type==="power"){
+    skillMode="powerSelect";
+    alert("強化したい自分の駒をクリック！");
+  }
+}
+
+document.addEventListener("click",e=>{
+  if(skillMode!=="powerSelect"||turn!=="先手")return;
+
+  const cells=[...document.querySelectorAll(".cell")];
+  const index=cells.indexOf(e.target);
+  if(index<0)return;
+
+  const x=index%9;
+  const y=Math.floor(index/9);
+
+  if(board[y][x]&&owners[y][x]==="先手"){
+    powered={x,y,life:1};
+    skillMode=null;
+    turnCount.先手=0;
+    endTurn();
+  }
+});
+
+function teleport(x,y){
+  if(!selected){
+    if(board[y][x]&&owners[y][x]==="先手"){
+      selected={x,y};
+      draw();
+    }
+    return;
+  }
+
+  if(board[y][x]){
+    alert("空きマスにしか移動できません！");
+    return;
+  }
+
+  board[y][x]=board[selected.y][selected.x];
+  owners[y][x]=owners[selected.y][selected.x];
+  board[selected.y][selected.x]="";
+  owners[selected.y][selected.x]="";
+
+  promote(x,y);
+
+  selected=null;
+  skillMode=null;
+  turnCount.先手=0;
+  endTurn();
+}
+
+function endTurn(){
+  if(powered){
+    powered.life--;
+    if(powered.life<=0)powered=null;
+  }
+
+  if(barrier){
+    barrier.life--;
+    if(barrier.life<=0)barrier=null;
+  }
+
+  turnCount[turn]++;
+
+  turn=turn==="先手"?"後手":"先手";
+
+  draw();
+
+  if(turn==="後手"){
+    aiThinking=true;
+    setTimeout(aiMove,600);
+  }
+}
+
+function aiMove(){
+  let moves=[];
+
+  for(let sy=0;sy<9;sy++){
+    for(let sx=0;sx<9;sx++){
+      if(owners[sy][sx]!=="後手")continue;
+
+      for(let ty=0;ty<9;ty++){
+        for(let tx=0;tx<9;tx++){
+          if(owners[ty][tx]==="後手")continue;
+          if(barrier&&barrier.x===tx&&barrier.y===ty)continue;
+
+          if(canMove(sx,sy,tx,ty)){
+            let score=1;
+
+            if(owners[ty][tx]==="先手"){
+              score+=pieceValue(board[ty][tx]);
+            }
+
+            const t=traps.find(a=>a.x===tx&&a.y===ty);
+            if(t&&t.type==="heal")score+=4;
+            if(t&&t.type==="trap")score-=5;
+
+            moves.push({sx,sy,tx,ty,score});
+          }
+        }
+      }
+    }
+  }
+
+  if(moves.length===0){
+    turn="先手";
+    aiThinking=false;
+    draw();
+    return;
+  }
+
+  moves.sort((a,b)=>b.score-a.score);
+  const best=moves[0];
+
+  move(best.sx,best.sy,best.tx,best.ty);
+
+  aiThinking=false;
+}
+
+function pieceValue(p){
+  if(p==="王")return 999;
+  if(p==="飛"||p==="角")return 20;
+  if(p==="金"||p==="銀"||p==="と")return 12;
+  if(p==="桂"||p==="香")return 8;
+  if(p==="歩")return 4;
+  return 1;
+}
+
+draw();
+</script>
+</body>
+</html>

@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Dash Roguelite Mobile GameOver</title>
+<style>
+html,body{margin:0;overflow:hidden;background:#080808;color:white;font-family:sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
+canvas{display:block;touch-action:none}
+#ui{position:absolute;top:10px;left:10px;z-index:10;line-height:1.55;font-size:14px;background:rgba(0,0,0,.35);padding:6px 8px;border-radius:8px;max-width:92vw}
+#menu{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#111;border:2px solid white;padding:20px;width:min(430px,88vw);max-height:86vh;overflow:auto;z-index:20;border-radius:12px}
+button{display:block;width:100%;margin:8px 0;padding:10px;background:#222;color:white;border:1px solid #aaa;text-align:left;border-radius:8px;font-size:15px}
+button:hover{background:#333}
+button:disabled{opacity:.45}
+.small{font-size:12px;color:#ccc}
+#skillBtn{position:fixed;right:14px;bottom:14px;z-index:15;width:92px;height:92px;border-radius:50%;border:2px solid #fff;background:rgba(0,180,255,.35);color:#fff;font-weight:bold;text-align:center;display:flex;align-items:center;justify-content:center;box-shadow:0 0 14px rgba(0,255,255,.45);touch-action:none}
+#skillBtn:active{transform:scale(.95);background:rgba(0,220,255,.55)}
+#gameOverPanel{display:none;position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.78);align-items:center;justify-content:center;text-align:center}
+#gameOverBox{background:#111;border:2px solid #fff;border-radius:16px;padding:22px;width:min(360px,86vw);box-shadow:0 0 20px rgba(255,255,255,.25)}
+#gameOverBox h1{margin:0 0 10px;font-size:34px}
+#gameOverBox p{margin:6px 0;color:#ddd}
+#restartBtn{margin-top:14px;text-align:center;background:#333}
+@media (max-width:700px){#ui{font-size:11px;line-height:1.35}#menu{padding:14px}button{font-size:14px;padding:11px}#skillBtn{width:78px;height:78px;font-size:13px}}
+</style>
+</head>
+<body>
+
+<div id="ui">
+Stage: <span id="stage">1</span><br>
+Enemy: <span id="kills">0</span>/<span id="goal">0</span><br>
+Boss撃破: <span id="bossKills">0</span><br>
+HP: <span id="hp">5</span><br>
+Boost: <span id="boost">100</span><br>
+Dash射程: <span id="range">200</span><br>
+攻撃力: <span id="atk">1</span><br>
+武器: <span id="weapon">-</span><br>
+武器スキル: <span id="skill">READY</span><br>
+スキル射程: <span id="skillRange">-</span><br>
+ソード角度: <span id="swordAngle">-</span><br>
+サブスキル: <span id="subs">なし</span>
+</div>
+
+<div id="menu"></div>
+<div id="skillBtn">SKILL</div>
+<div id="gameOverPanel">
+  <div id="gameOverBox">
+    <h1>GAME OVER</h1>
+    <p>倒されました</p>
+    <p>Stage: <span id="overStage">1</span> / Boss撃破: <span id="overBossKills">0</span></p>
+    <button id="restartBtn">もう一度プレイ</button>
+  </div>
+</div>
+<canvas id="game"></canvas>
+
+<script>
+const SUB_DEFS = [
+  {id:"orb",name:"追尾オーブ",desc:"一定時間ごとに近い敵へ弾を撃つ"},
+  {id:"mine",name:"地雷",desc:"足元に爆発地雷を置く"},
+  {id:"heal",name:"自動修復",desc:"一定時間ごとにHP回復"},
+  {id:"shield",name:"バリア",desc:"一定時間ごとに1回ダメージ無効"},
+  {id:"thunder",name:"雷撃",desc:"近い敵に雷ダメージ"},
+  {id:"blade",name:"回転刃",desc:"周囲の敵へ自動攻撃"},
+  {id:"slow",name:"スロー領域",desc:"周囲の敵を遅くする"},
+  {id:"drone",name:"ドローン",desc:"ランダムな敵を攻撃"},
+  {id:"bomb",name:"撃破爆発",desc:"敵撃破時に小爆発"},
+  {id:"boost",name:"ブースト補助",desc:"スタミナを自動回復"}
+];
+
+class Game{
+  constructor(){
+    this.canvas=document.getElementById("game");
+    this.ctx=this.canvas.getContext("2d");
+    this.resize();
+    addEventListener("resize",()=>this.resize());
+
+    this.mouse={x:innerWidth/2,y:innerHeight/2,down:false};
+    this.pressStart=0;
+
+    this.stage=1;
+    this.kills=0;
+    this.goal=0;
+    this.bossKills=0;
+
+    this.enemies=[];
+    this.bullets=[];
+    this.trails=[];
+    this.effects=[];
+    this.boss=null;
+
+    this.player=null;
+    this.paused=true;
+    this.gameOver=false;
+    this.clearing=false;
+    this.needSkillUpgrade=false;
+    this.needSubSkill=false;
+
+    this.bind();
+    this.showWeaponMenu();
+    this.loop();
+  }
+
+  resize(){
+    this.canvas.width=innerWidth;
+    this.canvas.height=innerHeight;
+  }
+
+  getEnemyGoal(){
+    // 敵数の上限はつけず、増え方だけゆるくする
+    // 例：Stage1=9体、Stage10=16体、Stage20=24体、Stage40=40体
+    return 8 + Math.floor(this.stage * 0.8);
+  }
+
+  setPointer(x,y){
+    this.mouse.x=x;
+    this.mouse.y=y;
+  }
+
+  startDashAt(x,y){
+    if(this.paused||this.gameOver||!this.player)return;
+    this.setPointer(x,y);
+    this.mouse.down=true;
+    this.pressStart=performance.now();
+    this.player.dashing=true;
+  }
+
+  endDashAt(x,y){
+    if(this.paused||this.gameOver||!this.player)return;
+    this.setPointer(x,y);
+    this.mouse.down=false;
+    const time=performance.now()-this.pressStart;
+    this.player.dashing=false;
+    if(time<500)this.player.quickDash(this.mouse.x,this.mouse.y);
+  }
+
+  bind(){
+    this.canvas.addEventListener("mousemove",e=>{
+      this.setPointer(e.clientX,e.clientY);
+    });
+
+    this.canvas.addEventListener("mousedown",e=>{
+      this.startDashAt(e.clientX,e.clientY);
+    });
+
+    this.canvas.addEventListener("mouseup",e=>{
+      this.endDashAt(e.clientX,e.clientY);
+    });
+
+    this.canvas.addEventListener("mouseleave",()=>{
+      if(this.player)this.player.dashing=false;
+      this.mouse.down=false;
+    });
+
+    this.canvas.addEventListener("touchstart",e=>{
+      e.preventDefault();
+      const t=e.changedTouches[0];
+      if(t)this.startDashAt(t.clientX,t.clientY);
+    },{passive:false});
+
+    this.canvas.addEventListener("touchmove",e=>{
+      e.preventDefault();
+      const t=e.changedTouches[0];
+      if(t)this.setPointer(t.clientX,t.clientY);
+    },{passive:false});
+
+    this.canvas.addEventListener("touchend",e=>{
+      e.preventDefault();
+      const t=e.changedTouches[0];
+      if(t)this.endDashAt(t.clientX,t.clientY);
+    },{passive:false});
+
+    document.getElementById("skillBtn").addEventListener("click",e=>{
+      e.preventDefault();
+      if(this.player && !this.paused && !this.gameOver)this.player.useSkill();
+    });
+
+    document.getElementById("skillBtn").addEventListener("touchstart",e=>{
+      e.preventDefault();
+      if(this.player && !this.paused && !this.gameOver)this.player.useSkill();
+    },{passive:false});
+
+    document.getElementById("restartBtn").addEventListener("click",()=>{
+      location.reload();
+    });
+
+    document.getElementById("restartBtn").addEventListener("touchstart",e=>{
+      e.preventDefault();
+      location.reload();
+    },{passive:false});
+
+    addEventListener("keydown",e=>{
+      if(e.code==="Space" && this.player && !this.paused && !this.gameOver){
+        this.player.useSkill();
+      }
+    });
+  }
+
+  showWeaponMenu(){
+    const m=document.getElementById("menu");
+    m.style.display="block";
+    m.innerHTML=`
+      <h2>武器選択</h2>
+      <button onclick="game.start('sword')">🗡 ソード<br><span class="small">高火力。スキル：前方扇形斬撃。角度強化あり。</span></button>
+      <button onclick="game.start('lance')">⚡ ランス<br><span class="small">長射程・高速。スキル：貫通突進。</span></button>
+      <button onclick="game.start('blast')">💥 ブラスト<br><span class="small">範囲攻撃型。スキル：爆発ショックウェーブ。</span></button>
+    `;
+  }
+
+  start(weapon){
+    document.getElementById("menu").style.display="none";
+    this.player=new Player(this,weapon);
+    this.paused=false;
+    this.spawnStage();
+  }
+
+  spawnStage(){
+    this.clearing=false;
+    this.kills=0;
+    this.enemies=[];
+    this.bullets=[];
+    this.effects=[];
+    this.boss=null;
+
+    if(this.stage%6===0){
+      this.goal=1;
+      this.boss=new Boss(this);
+    }else{
+      this.goal=this.getEnemyGoal();
+      for(let i=0;i<this.goal;i++) this.enemies.push(new Enemy(this));
+    }
+  }
+
+  clearStage(){
+    if(this.clearing)return;
+    this.clearing=true;
+    this.paused=true;
+
+    this.needSkillUpgrade = this.stage % 3 === 0;
+    this.needSubSkill = this.stage % 5 === 0;
+
+    this.showBasicUpgradeMenu();
+  }
+
+  showBasicUpgradeMenu(){
+    const m=document.getElementById("menu");
+    m.style.display="block";
+    m.innerHTML=`
+      <h2>基本強化</h2>
+      <p>ステージ ${this.stage} クリア！</p>
+      <button onclick="game.basicUpgrade('range')">Dash射程 +35</button>
+      <button onclick="game.basicUpgrade('boost')">最大スタミナ +25</button>
+      <button onclick="game.basicUpgrade('atk')">攻撃力 +1</button>
+      <button onclick="game.basicUpgrade('hp')">最大HP +1 & 全回復</button>
+      <button onclick="game.basicUpgrade('regen')">スタミナ回復速度UP</button>
+    `;
+  }
+
+  basicUpgrade(type){
+    const p=this.player;
+
+    if(type==="range")p.range+=35;
+    if(type==="boost"){p.boostMax+=25;p.boost=p.boostMax;}
+    if(type==="atk")p.attack++;
+    if(type==="hp"){p.hpMax++;p.hp=p.hpMax;}
+    if(type==="regen")p.regen+=0.25;
+
+    if(this.needSkillUpgrade){
+      this.showSkillUpgradeMenu();
+    }else if(this.needSubSkill){
+      this.showSubSkillMenu();
+    }else{
+      this.goNextStage();
+    }
+  }
+
+  showSkillUpgradeMenu(){
+    const p=this.player;
+    const m=document.getElementById("menu");
+
+    let html=`<h2>武器スキル強化</h2><p>3ステージごとの強化！</p>`;
+
+    if(p.weapon==="sword"){
+      html+=`
+      <button onclick="game.skillUpgrade('power')">扇形斬撃ダメージUP</button>
+      <button onclick="game.skillUpgrade('range')">扇形斬撃射程UP</button>
+      <button onclick="game.skillUpgrade('angle')">扇形斬撃の角度UP</button>
+      <button onclick="game.skillUpgrade('cool')">クールタイム短縮</button>`;
+    }
+
+    if(p.weapon==="lance"){
+      html+=`
+      <button onclick="game.skillUpgrade('power')">貫通突進ダメージUP</button>
+      <button onclick="game.skillUpgrade('range')">貫通突進距離UP</button>
+      <button onclick="game.skillUpgrade('cool')">クールタイム短縮</button>`;
+    }
+
+    if(p.weapon==="blast"){
+      html+=`
+      <button onclick="game.skillUpgrade('power')">爆発ダメージUP</button>
+      <button onclick="game.skillUpgrade('range')">爆発範囲UP</button>
+      <button onclick="game.skillUpgrade('cost')">消費スタミナ軽減</button>`;
+    }
+
+    m.innerHTML=html;
+  }
+
+  skillUpgrade(type){
+    const p=this.player;
+    if(type==="power")p.skillPower++;
+    if(type==="range")p.skillRange+=30;
+    if(type==="angle")p.skillAngle+=Math.PI/12;
+    if(type==="cool")p.skillCooldownMax=Math.max(60,p.skillCooldownMax-25);
+    if(type==="cost")p.skillCost=Math.max(5,p.skillCost-5);
+
+    if(this.needSubSkill){
+      this.showSubSkillMenu();
+    }else{
+      this.goNextStage();
+    }
+  }
+
+  showSubSkillMenu(){
+    const m=document.getElementById("menu");
+    const owned=this.player.subSkills.map(s=>s.id);
+
+    let pool=SUB_DEFS.slice();
+
+    for(let i=pool.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [pool[i],pool[j]]=[pool[j],pool[i]];
+    }
+
+    const choices=pool.slice(0,3);
+
+    let html=`<h2>サブスキル</h2>
+    <p>5ステージごと。最大取得数は3つ。</p>`;
+
+    choices.forEach(def=>{
+      const sub=this.player.subSkills.find(s=>s.id===def.id);
+
+      if(sub){
+        html+=`
+        <button onclick="game.pickSubSkill('${def.id}')">
+        強化：${def.name} Lv.${sub.level}<br>
+        <span class="small">${this.getSubUpgradeText(def.id,sub.level)}</span>
+        </button>`;
+      }else{
+        const full=this.player.subSkills.length>=3;
+        html+=`
+        <button ${full?"disabled":""} onclick="game.pickSubSkill('${def.id}')">
+        取得：${def.name}<br>
+        <span class="small">${def.desc}${full?" / 所持上限です":""}</span>
+        </button>`;
+      }
+    });
+
+    html+=`<p class="small">所持中：${this.player.subSkills.map(s=>s.name+" Lv."+s.level).join(" / ")||"なし"}</p>`;
+    m.innerHTML=html;
+  }
+
+  getSubUpgradeText(id,level){
+    if(level>=4)return "最大強化済み";
+    const texts={
+      orb:["発射間隔短縮","弾ダメージUP","2連射化"],
+      mine:["爆発範囲UP","設置間隔短縮","ダメージUP"],
+      heal:["回復間隔短縮","回復量UP","最大HPも少し増加"],
+      shield:["再展開短縮","無敵時間UP","HP低下時すぐ展開"],
+      thunder:["雷撃間隔短縮","威力UP","2体に連鎖"],
+      blade:["範囲UP","威力UP","回転速度UP"],
+      slow:["範囲UP","効果UP","敵弾も遅くする"],
+      drone:["攻撃間隔短縮","威力UP","2機目追加"],
+      bomb:["爆発範囲UP","爆発威力UP","連鎖爆発"],
+      boost:["回復量UP","低スタミナ時強化","最大スタミナUP"]
+    };
+    return "強化" + level + "： " + texts[id][level-1];
+  }
+
+  pickSubSkill(id){
+    const def=SUB_DEFS.find(s=>s.id===id);
+    let sub=this.player.subSkills.find(s=>s.id===id);
+
+    if(sub){
+      if(sub.level<4)sub.level++;
+    }else{
+      if(this.player.subSkills.length>=3)return;
+      this.player.subSkills.push({
+        id:def.id,
+        name:def.name,
+        level:1,
+        timer:0,
+        extra:0
+      });
+    }
+
+    this.goNextStage();
+  }
+
+  goNextStage(){
+    document.getElementById("menu").style.display="none";
+    this.needSkillUpgrade=false;
+    this.needSubSkill=false;
+    this.stage++;
+    this.paused=false;
+    this.spawnStage();
+  }
+
+  damagePlayer(){
+    const shield=this.player.subSkills.find(s=>s.id==="shield");
+    if(shield && shield.extra>0){
+      shield.extra=0;
+      this.effects.push(new CircleEffect(this,this.player.x,this.player.y,80,"white"));
+      return;
+    }
+
+    if(this.gameOver||this.player.inv>0)return;
+
+    this.player.hp--;
+    this.player.inv=60;
+
+    if(this.player.hp<=0){
+      this.showGameOver();
+    }
+  }
+
+  showGameOver(){
+    if(this.gameOver)return;
+    this.gameOver=true;
+    this.paused=true;
+    this.mouse.down=false;
+    if(this.player)this.player.dashing=false;
+
+    document.getElementById("overStage").textContent=this.stage;
+    document.getElementById("overBossKills").textContent=this.bossKills;
+    document.getElementById("gameOverPanel").style.display="flex";
+  }
+
+  nearestEnemy(x,y){
+    let list=[...this.enemies];
+    if(this.boss)list.push(this.boss);
+    let best=null,bd=Infinity;
+    list.forEach(e=>{
+      const d=Math.hypot(e.x-x,e.y-y);
+      if(d<bd){bd=d;best=e;}
+    });
+    return best;
+  }
+
+  damageTarget(t,dmg){
+    if(!t || t.dead)return;
+    t.hp-=dmg;
+    if(t.hpBarTimer!==undefined)t.hpBarTimer=90;
+    if(t instanceof Boss){
+      if(t.hp<=0)t.dead=true;
+    }else{
+      if(t.hp<=0&&!t.dead){
+        t.dead=true;
+        this.kills++;
+        this.onEnemyKilled(t.x,t.y);
+      }
+    }
+  }
+
+  onEnemyKilled(x,y){
+    const bomb=this.player.subSkills.find(s=>s.id==="bomb");
+    if(bomb){
+      const r=55+bomb.level*18;
+      const dmg=bomb.level;
+      this.effects.push(new CircleEffect(this,x,y,r,"orange"));
+      this.enemies.forEach(e=>{
+        if(!e.dead && Math.hypot(e.x-x,e.y-y)<r){
+          this.damageTarget(e,dmg);
+        }
+      });
+    }
+  }
+
+  updateSubSkills(){
+    const p=this.player;
+
+    p.subSkills.forEach(s=>{
+      s.timer++;
+
+      if(s.id==="orb" && s.timer>Math.max(30,100-s.level*15)){
+        s.timer=0;
+        const target=this.nearestEnemy(p.x,p.y);
+        if(target){
+          let dx=target.x-p.x,dy=target.y-p.y,d=Math.hypot(dx,dy)||1;
+          this.bullets.push(new PlayerBullet(this,p.x,p.y,dx/d*7,dy/d*7,1+s.level));
+          if(s.level>=4)this.bullets.push(new PlayerBullet(this,p.x,p.y,dx/d*6.3,dy/d*6.3,1+s.level));
+        }
+      }
+
+      if(s.id==="mine" && s.timer>Math.max(50,160-s.level*25)){
+        s.timer=0;
+        this.effects.push(new MineEffect(this,p.x,p.y,60+s.level*15,1+s.level));
+      }
+
+      if(s.id==="heal" && s.timer>Math.max(180,420-s.level*60)){
+        s.timer=0;
+        p.hp=Math.min(p.hpMax,p.hp+(s.level>=3?2:1));
+        if(s.level>=4)p.hpMax+=0.2;
+      }
+
+      if(s.id==="shield" && s.timer>Math.max(180,420-s.level*60)){
+        s.timer=0;
+        s.extra=1;
+      }
+
+      if(s.id==="thunder" && s.timer>Math.max(45,140-s.level*20)){
+        s.timer=0;
+        const target=this.nearestEnemy(p.x,p.y);
+        if(target){
+          this.effects.push(new LineEffect(this,p.x,p.y,target.x,target.y,"yellow"));
+          this.damageTarget(target,1+s.level);
+          if(s.level>=4){
+            const target2=this.nearestEnemy(target.x,target.y);
+            if(target2&&target2!==target)this.damageTarget(target2,1);
+          }
+        }
+      }
+
+      if(s.id==="blade" && s.timer>Math.max(20,70-s.level*10)){
+        s.timer=0;
+        const r=70+s.level*20;
+        this.effects.push(new CircleEffect(this,p.x,p.y,r,"silver"));
+        this.enemies.forEach(e=>{
+          if(Math.hypot(e.x-p.x,e.y-p.y)<r)this.damageTarget(e,s.level);
+        });
+        if(this.boss && Math.hypot(this.boss.x-p.x,this.boss.y-p.y)<r)this.damageTarget(this.boss,s.level);
+      }
+
+      if(s.id==="slow"){
+        // Enemy側で参照
+      }
+
+      if(s.id==="drone" && s.timer>Math.max(35,100-s.level*15)){
+        s.timer=0;
+        const target=this.nearestEnemy(Math.random()*innerWidth,Math.random()*innerHeight);
+        if(target){
+          this.effects.push(new LineEffect(this,p.x,p.y,target.x,target.y,"lime"));
+          this.damageTarget(target,1+s.level);
+          if(s.level>=4){
+            const target2=this.nearestEnemy(p.x,p.y);
+            if(target2)this.damageTarget(target2,1+s.level);
+          }
+        }
+      }
+
+      if(s.id==="boost"){
+        p.boost=Math.min(p.boostMax,p.boost+0.05*s.level);
+        if(s.level>=4)p.boostMax=Math.max(p.boostMax,120);
+      }
+    });
+  }
+
+  update(){
+    if(this.paused||this.gameOver)return;
+
+    this.player.update();
+    this.updateSubSkills();
+
+    this.enemies.forEach(e=>e.update());
+    this.enemies=this.enemies.filter(e=>!e.dead);
+
+    this.bullets.forEach(b=>b.update());
+    this.bullets=this.bullets.filter(b=>!b.dead);
+
+    this.trails.forEach(t=>t.life--);
+    this.trails=this.trails.filter(t=>t.life>0);
+
+    this.effects.forEach(e=>e.update());
+    this.effects=this.effects.filter(e=>!e.dead);
+
+    if(this.boss){
+      this.boss.update();
+      if(this.boss.dead){
+        this.bossKills++;
+        this.boss=null;
+        this.kills=1;
+        this.clearStage();
+      }
+    }else{
+      if(this.kills>=this.goal || this.enemies.length===0)this.clearStage();
+    }
+
+    this.syncUI();
+  }
+
+  syncUI(){
+    if(!this.player)return;
+    const p=this.player;
+
+    const skillBase = p.weapon==="sword" ? 120 : p.weapon==="blast" ? 160 : 260;
+    const skillRange = skillBase + p.skillRange;
+    const angleDeg = Math.round(p.skillAngle*180/Math.PI);
+
+    document.getElementById("stage").textContent=this.stage;
+    document.getElementById("kills").textContent=this.kills;
+    document.getElementById("goal").textContent=this.goal;
+    document.getElementById("bossKills").textContent=this.bossKills;
+    document.getElementById("hp").textContent=Math.floor(p.hp)+"/"+Math.floor(p.hpMax);
+    document.getElementById("boost").textContent=Math.floor(p.boost)+"/"+Math.floor(p.boostMax);
+    document.getElementById("range").textContent=p.range;
+    document.getElementById("atk").textContent=p.attack;
+    document.getElementById("weapon").textContent=p.weaponName;
+    document.getElementById("skill").textContent=p.skillCd>0?"COOL":"READY";
+    document.getElementById("skillRange").textContent=skillRange;
+    document.getElementById("swordAngle").textContent=p.weapon==="sword" ? angleDeg+"度" : "-";
+    document.getElementById("subs").textContent=p.subSkills.map(s=>s.name+"Lv."+s.level).join(" / ")||"なし";
+  }
+
+  draw(){
+    this.ctx.clearRect(0,0,this.canvas.width,this.canvas.height);
+
+    this.trails.forEach(t=>{
+      this.ctx.fillStyle=`rgba(0,255,255,${t.life/18})`;
+      this.ctx.beginPath();
+      this.ctx.arc(t.x,t.y,15,0,Math.PI*2);
+      this.ctx.fill();
+    });
+
+    this.effects.forEach(e=>e.draw());
+    this.enemies.forEach(e=>e.draw());
+    this.bullets.forEach(b=>b.draw());
+
+    if(this.boss)this.boss.draw();
+    if(this.player)this.player.draw();
+  }
+
+  loop(){
+    this.update();
+    this.draw();
+    requestAnimationFrame(()=>this.loop());
+  }
+}
+
+class Player{
+  constructor(g,weapon){
+    this.g=g;
+    this.weapon=weapon;
+
+    this.x=innerWidth/2;
+    this.y=innerHeight/2;
+    this.r=15;
+
+    this.hpMax=5;
+    this.hp=5;
+    this.attack=1;
+    this.range=200;
+
+    this.boostMax=100;
+    this.boost=100;
+    this.regen=0.6;
+
+    this.speed=18;
+    this.dashing=false;
+    this.attackTimer=0;
+    this.bodyHitCd=0; // 体当たり攻撃の連続ヒット防止
+    this.inv=0;
+
+    this.skillCd=0;
+    this.skillPower=1;
+    this.skillRange=0;
+    this.skillAngle=Math.PI/2;
+    this.skillCooldownMax=160;
+    this.skillCost=25;
+
+    this.subSkills=[];
+    this.weaponName="";
+
+    if(weapon==="sword"){
+      this.weaponName="ソード";
+      this.attack=2;
+      this.skillCooldownMax=150;
+    }
+
+    if(weapon==="lance"){
+      this.weaponName="ランス";
+      this.attack=1;
+      this.range=260;
+      this.speed=22;
+      this.hpMax=4;
+      this.hp=4;
+      this.skillCooldownMax=170;
+    }
+
+    if(weapon==="blast"){
+      this.weaponName="ブラスト";
+      this.attack=1;
+      this.boostMax=120;
+      this.boost=120;
+      this.skillCooldownMax=210;
+      this.skillCost=25;
+    }
+  }
+
+  quickDash(tx,ty){
+    const sx=this.x;
+    const sy=this.y;
+
+    let dx=tx-this.x, dy=ty-this.y;
+    let d=Math.hypot(dx,dy)||1;
+
+    if(d>this.range){
+      dx=dx/d*this.range;
+      dy=dy/d*this.range;
+    }
+
+    let ex=sx+dx;
+    let ey=sy+dy;
+    ex=Math.max(this.r,Math.min(innerWidth-this.r,ex));
+    ey=Math.max(this.r,Math.min(innerHeight-this.r,ey));
+
+    for(let i=0;i<10;i++){
+      this.g.trails.push({x:sx+(ex-sx)*(i/10),y:sy+(ey-sy)*(i/10),life:18});
+    }
+
+    // 単押し突進は、着地点だけでなく「通った線上」にいる敵にも当たる
+    this.hitDashRoute(sx,sy,ex,ey);
+
+    this.x=ex;
+    this.y=ey;
+    this.attackTimer=10;
+  }
+
+  distancePointToSegment(px,py,x1,y1,x2,y2){
+    const vx=x2-x1;
+    const vy=y2-y1;
+    const wx=px-x1;
+    const wy=py-y1;
+    const len2=vx*vx+vy*vy || 1;
+    let t=(wx*vx+wy*vy)/len2;
+    t=Math.max(0,Math.min(1,t));
+    const cx=x1+vx*t;
+    const cy=y1+vy*t;
+    return Math.hypot(px-cx,py-cy);
+  }
+
+  hitDashRoute(sx,sy,ex,ey){
+    const hitWidth=this.r+8;
+
+    this.g.enemies.forEach(e=>{
+      if(e.dead || e.hitCd>0)return;
+      const dist=this.distancePointToSegment(e.x,e.y,sx,sy,ex,ey);
+      if(dist<e.r+hitWidth){
+        this.g.damageTarget(e,this.attack);
+        e.hitCd=22;
+      }
+    });
+
+    if(this.g.boss && !this.g.boss.dead && this.g.boss.hitCd<=0){
+      const b=this.g.boss;
+      const dist=this.distancePointToSegment(b.x,b.y,sx,sy,ex,ey);
+      if(dist<b.r+hitWidth){
+        this.g.damageTarget(b,this.attack);
+        b.hitCd=20;
+      }
+    }
+  }
+
+  update(){
+    if(this.inv>0)this.inv--;
+    if(this.skillCd>0)this.skillCd--;
+    if(this.attackTimer>0)this.attackTimer--;
+
+    if(!this.dashing){
+      this.boost=Math.min(this.boostMax,this.boost+this.regen);
+    }
+
+    if(this.dashing && this.boost>0){
+      this.boost-=0.8;
+
+      let dx=this.g.mouse.x-this.x;
+      let dy=this.g.mouse.y-this.y;
+      let d=Math.hypot(dx,dy)||1;
+
+      if(d>this.range){
+        dx=dx/d*this.range;
+        dy=dy/d*this.range;
+      }
+
+      this.x+=dx/d*this.speed;
+      this.y+=dy/d*this.speed;
+      this.x=Math.max(this.r,Math.min(innerWidth-this.r,this.x));
+      this.y=Math.max(this.r,Math.min(innerHeight-this.r,this.y));
+
+      this.attackTimer=3;
+      this.g.trails.push({x:this.x,y:this.y,life:18});
+
+      if(this.boost<=0){
+        this.boost=0;
+        this.dashing=false;
+      }
+    }
+  }
+
+  isAttacking(){
+    return this.dashing || this.attackTimer>0;
+  }
+
+  getAimAngle(){
+    return Math.atan2(this.g.mouse.y-this.y,this.g.mouse.x-this.x);
+  }
+
+  useSkill(){
+    if(this.skillCd>0)return;
+
+    if(this.weapon==="sword"){
+      this.skillCd=this.skillCooldownMax;
+
+      const radius=120+this.skillRange;
+      const dmg=this.attack+2+this.skillPower;
+      const angle=this.getAimAngle();
+      const spread=this.skillAngle;
+
+      this.g.effects.push(new ConeEffect(this.g,this.x,this.y,radius,angle,spread,"cyan"));
+      this.hitCone(radius,angle,spread,dmg);
+    }
+
+    if(this.weapon==="lance"){
+      if(this.boost<15)return;
+
+      this.skillCd=this.skillCooldownMax;
+      this.boost-=15;
+
+      const sx=this.x, sy=this.y;
+
+      let dx=this.g.mouse.x-this.x;
+      let dy=this.g.mouse.y-this.y;
+      let d=Math.hypot(dx,dy)||1;
+
+      const dist=260+this.skillRange;
+      this.x+=dx/d*dist;
+      this.y+=dy/d*dist;
+
+      this.attackTimer=16+this.skillPower*2;
+
+      for(let i=0;i<12;i++){
+        this.g.trails.push({x:sx+(this.x-sx)*(i/12),y:sy+(this.y-sy)*(i/12),life:20});
+      }
+
+      this.g.effects.push(new LineEffect(this.g,sx,sy,this.x,this.y,"cyan"));
+    }
+
+    if(this.weapon==="blast"){
+      if(this.boost<this.skillCost)return;
+
+      this.skillCd=this.skillCooldownMax;
+      this.boost-=this.skillCost;
+
+      const r=160+this.skillRange;
+      const dmg=this.attack+1+this.skillPower;
+
+      this.g.effects.push(new CircleEffect(this.g,this.x,this.y,r,"orange"));
+      this.hitArea(r,dmg);
+    }
+  }
+
+  angleDiff(a,b){
+    let d=a-b;
+    while(d>Math.PI)d-=Math.PI*2;
+    while(d<-Math.PI)d+=Math.PI*2;
+    return Math.abs(d);
+  }
+
+  hitCone(radius,angle,spread,dmg){
+    this.g.enemies.forEach(e=>{
+      const dx=e.x-this.x,dy=e.y-this.y;
+      const dist=Math.hypot(dx,dy);
+      const a=Math.atan2(dy,dx);
+
+      if(dist<radius && this.angleDiff(a,angle)<spread/2){
+        this.g.damageTarget(e,dmg);
+      }
+    });
+
+    if(this.g.boss){
+      const b=this.g.boss;
+      const dx=b.x-this.x,dy=b.y-this.y;
+      const dist=Math.hypot(dx,dy);
+      const a=Math.atan2(dy,dx);
+
+      if(dist<radius+b.r && this.angleDiff(a,angle)<spread/2){
+        this.g.damageTarget(b,dmg);
+      }
+    }
+  }
+
+  hitArea(r,dmg){
+    this.g.enemies.forEach(e=>{
+      if(Math.hypot(e.x-this.x,e.y-this.y)<r)this.g.damageTarget(e,dmg);
+    });
+
+    if(this.g.boss && Math.hypot(this.g.boss.x-this.x,this.g.boss.y-this.y)<r){
+      this.g.damageTarget(this.g.boss,dmg);
+    }
+  }
+
+  draw(){
+    const c=this.g.ctx;
+
+    if(this.inv%10<5){
+      if(this.weapon==="sword")c.fillStyle="#00ffff";
+      if(this.weapon==="lance")c.fillStyle="#3399ff";
+      if(this.weapon==="blast")c.fillStyle="#ff9900";
+
+      c.beginPath();
+      c.arc(this.x,this.y,this.r,0,Math.PI*2);
+      c.fill();
+    }
+  }
+}
+
+class Enemy{
+  constructor(g){
+    this.g=g;
+    this.x=Math.random()*innerWidth;
+    this.y=Math.random()*innerHeight;
+    if(g.player){
+      for(let i=0;i<20 && Math.hypot(this.x-g.player.x,this.y-g.player.y)<180;i++){
+        this.x=Math.random()*innerWidth;
+        this.y=Math.random()*innerHeight;
+      }
+    }
+    this.r=12;
+    // 敵強化は少し緩やか：4ステージごと → 6ステージごと
+    this.hpMax=1+Math.floor((g.stage-1)/6);
+    this.hp=this.hpMax;
+    this.speed=0.95+g.stage*0.018;
+    this.hitCd=0; // この敵が体当たりで連続ダメージを受けるのを防ぐ
+    this.hpBarTimer=0; // ダメージ後しばらく体力バーを表示
+    this.dead=false;
+  }
+
+  update(){
+    if(this.hitCd>0)this.hitCd--;
+    if(this.hpBarTimer>0)this.hpBarTimer--;
+    const p=this.g.player;
+    let dx=p.x-this.x, dy=p.y-this.y;
+    let d=Math.hypot(dx,dy)||1;
+
+    const slow=p.subSkills.find(s=>s.id==="slow");
+    let slowRate=slow ? Math.max(0.35,1-0.12*slow.level) : 1;
+    const nearSlow=slow && Math.hypot(p.x-this.x,p.y-this.y)<90+slow.level*35;
+    const sp=this.speed*(nearSlow?slowRate:1);
+
+    this.x+=dx/d*sp;
+    this.y+=dy/d*sp;
+
+    if(d<this.r+p.r){
+      if(p.isAttacking()){
+        // パターン1：同じ敵への連続ヒットだけ防ぐ。別の敵には続けて当たれる。
+        if(this.hitCd<=0){
+          this.g.damageTarget(this,p.attack);
+          this.hitCd=24;
+        }
+      }else{
+        this.g.damagePlayer();
+        this.x-=dx/d*45;
+        this.y-=dy/d*45;
+      }
+    }
+  }
+
+  draw(){
+    const c=this.g.ctx;
+
+    c.fillStyle="red";
+    c.beginPath();
+    c.arc(this.x,this.y,this.r,0,Math.PI*2);
+    c.fill();
+
+    const showBar = this.hpMax>1 || this.hpBarTimer>0;
+    if(showBar && this.hp>0){
+      const w=34;
+      const h=5;
+      const rate=Math.max(0,Math.min(1,this.hp/this.hpMax));
+      c.fillStyle="rgba(0,0,0,.75)";
+      c.fillRect(this.x-w/2-1,this.y-25,w+2,h+2);
+      c.fillStyle="#444";
+      c.fillRect(this.x-w/2,this.y-24,w,h);
+      c.fillStyle=rate>0.5?"lime":rate>0.25?"yellow":"red";
+      c.fillRect(this.x-w/2,this.y-24,w*rate,h);
+    }
+  }
+}
+
+class Boss{
+  constructor(g){
+    this.g=g;
+    this.x=innerWidth/2;
+    this.y=90;
+    this.r=45;
+
+    // ボス撃破回数でランクアップ。次に出るボスから強くなる。
+    this.rank=g.bossKills;
+
+    // ボスHPは単純増加。通常敵よりはっきり強くなる。
+    this.hpMax=26+g.stage*3+this.rank*14;
+    this.hp=this.hpMax;
+
+    this.timer=0;
+    this.hitCd=0; // ボスが体当たりで連続ダメージを受けるのを防ぐ
+    this.dead=false;
+  }
+
+  update(){
+    if(this.hitCd>0)this.hitCd--;
+    if(this.hpBarTimer>0)this.hpBarTimer--;
+    const p=this.g.player;
+    this.timer++;
+
+    let dx=p.x-this.x, dy=p.y-this.y;
+    let d=Math.hypot(dx,dy)||1;
+
+    // rank10以上は最初から第2フェーズ扱い
+    const phase2=this.hp<this.hpMax/2 || this.rank>=10;
+    const speed=(phase2?1.0:0.55)+Math.min(this.rank,8)*0.035;
+
+    this.x+=dx/d*speed;
+    this.y+=dy/d*speed;
+
+    // 基本弾：撃破回数が増えるほど少しだけ発射間隔短縮
+    const mainInterval=Math.max(28,(phase2?45:90)-this.rank*4);
+    if(this.timer%mainInterval===0){
+      this.shootAtPlayer();
+      if(phase2)this.spreadShot();
+    }
+
+    // 追加攻撃1：ボス撃破1回以上で6方向弾
+    if(this.rank>=1 && this.timer%180===0){
+      this.ringShot(6,4.2);
+    }
+
+    // 追加攻撃2：ボス撃破3回以上で追加10方向弾
+    if(this.rank>=3 && this.timer%130===0){
+      this.ringShot(10,3.6);
+    }
+
+    // 追加攻撃3：ボス撃破5回以上で突進
+    if(this.rank>=5 && this.timer%240===0){
+      this.dashAttack();
+    }
+
+    if(d<this.r+p.r){
+      if(p.isAttacking()){
+        // ボスも同じく、ボス自身の被弾クールダウンだけで多段ヒットを防ぐ
+        if(this.hitCd<=0){
+          this.g.damageTarget(this,p.attack);
+          this.hitCd=20;
+        }
+      }else{
+        this.g.damagePlayer();
+      }
+    }
+
+    if(this.hp<=0)this.dead=true;
+  }
+
+  bulletSpeed(base){
+    return base*(1+Math.min(this.rank,7)*0.05);
+  }
+
+  shootAtPlayer(){
+    const p=this.g.player;
+    let dx=p.x-this.x, dy=p.y-this.y;
+    let d=Math.hypot(dx,dy)||1;
+    const sp=this.bulletSpeed(5);
+    this.g.bullets.push(new Bullet(this.g,this.x,this.y,dx/d*sp,dy/d*sp));
+  }
+
+  spreadShot(){
+    const count=8+Math.min(this.rank,6);
+    const sp=this.bulletSpeed(3.5);
+    for(let i=0;i<count;i++){
+      const a=Math.PI*2*i/count;
+      this.g.bullets.push(new Bullet(this.g,this.x,this.y,Math.cos(a)*sp,Math.sin(a)*sp));
+    }
+  }
+
+  ringShot(count,speed){
+    const sp=this.bulletSpeed(speed);
+    for(let i=0;i<count;i++){
+      const a=Math.PI*2*i/count+this.timer*0.015;
+      this.g.bullets.push(new Bullet(this.g,this.x,this.y,Math.cos(a)*sp,Math.sin(a)*sp));
+    }
+  }
+
+  dashAttack(){
+    const p=this.g.player;
+    const sx=this.x, sy=this.y;
+    let dx=p.x-this.x, dy=p.y-this.y;
+    let d=Math.hypot(dx,dy)||1;
+
+    const dist=130+Math.min(this.rank,8)*8;
+    this.x+=dx/d*dist;
+    this.y+=dy/d*dist;
+    this.x=Math.max(this.r,Math.min(innerWidth-this.r,this.x));
+    this.y=Math.max(this.r,Math.min(innerHeight-this.r,this.y));
+
+    this.g.effects.push(new LineEffect(this.g,sx,sy,this.x,this.y,"red"));
+  }
+
+  draw(){
+    const c=this.g.ctx;
+
+    c.fillStyle=this.hp<this.hpMax/2?"#ff00aa":"purple";
+    c.beginPath();
+    c.arc(this.x,this.y,this.r,0,Math.PI*2);
+    c.fill();
+
+    c.fillStyle="white";
+    c.fillRect(this.x-55,this.y-65,110,8);
+
+    const hpRate=Math.max(0,Math.min(1,this.hp/this.hpMax));
+    c.fillStyle="lime";
+    c.fillRect(this.x-55,this.y-65,110*hpRate,8);
+  }
+}
+
+class Bullet{
+  constructor(g,x,y,vx,vy){
+    this.g=g;this.x=x;this.y=y;this.vx=vx;this.vy=vy;this.r=6;this.dead=false;
+  }
+
+  update(){
+    const slow=this.g.player.subSkills.find(s=>s.id==="slow");
+    let rate=1;
+    if(slow&&slow.level>=4)rate=0.75;
+
+    this.x+=this.vx*rate;
+    this.y+=this.vy*rate;
+
+    const p=this.g.player;
+
+    if(Math.hypot(this.x-p.x,this.y-p.y)<this.r+p.r){
+      this.dead=true;
+      this.g.damagePlayer();
+    }
+
+    if(this.x<0||this.y<0||this.x>innerWidth||this.y>innerHeight)this.dead=true;
+  }
+
+  draw(){
+    const c=this.g.ctx;
+    c.fillStyle="yellow";
+    c.beginPath();
+    c.arc(this.x,this.y,this.r,0,Math.PI*2);
+    c.fill();
+  }
+}
+
+class PlayerBullet{
+  constructor(g,x,y,vx,vy,dmg){
+    this.g=g;this.x=x;this.y=y;this.vx=vx;this.vy=vy;this.dmg=dmg;this.r=5;this.dead=false;
+  }
+
+  update(){
+    this.x+=this.vx;
+    this.y+=this.vy;
+
+    this.g.enemies.forEach(e=>{
+      if(!this.dead&&!e.dead&&Math.hypot(this.x-e.x,this.y-e.y)<this.r+e.r){
+        this.dead=true;
+        this.g.damageTarget(e,this.dmg);
+      }
+    });
+
+    if(this.g.boss&&!this.dead&&Math.hypot(this.x-this.g.boss.x,this.y-this.g.boss.y)<this.r+this.g.boss.r){
+      this.dead=true;
+      this.g.damageTarget(this.g.boss,this.dmg);
+    }
+
+    if(this.x<0||this.y<0||this.x>innerWidth||this.y>innerHeight)this.dead=true;
+  }
+
+  draw(){
+    const c=this.g.ctx;
+    c.fillStyle="lime";
+    c.beginPath();
+    c.arc(this.x,this.y,this.r,0,Math.PI*2);
+    c.fill();
+  }
+}
+
+class MineEffect{
+  constructor(g,x,y,r,dmg){
+    this.g=g;this.x=x;this.y=y;this.r=r;this.dmg=dmg;this.life=35;this.dead=false;this.hit=false;
+  }
+
+  update(){
+    if(!this.hit){
+      this.g.enemies.forEach(e=>{
+        if(Math.hypot(e.x-this.x,e.y-this.y)<this.r)this.g.damageTarget(e,this.dmg);
+      });
+      if(this.g.boss&&Math.hypot(this.g.boss.x-this.x,this.g.boss.y-this.y)<this.r)this.g.damageTarget(this.g.boss,this.dmg);
+      this.hit=true;
+    }
+    this.life--;
+    if(this.life<=0)this.dead=true;
+  }
+
+  draw(){
+    const c=this.g.ctx;
+    c.save();
+    c.globalAlpha=this.life/35;
+    c.strokeStyle="orange";
+    c.beginPath();
+    c.arc(this.x,this.y,this.r,0,Math.PI*2);
+    c.stroke();
+    c.restore();
+  }
+}
+
+class ConeEffect{
+  constructor(g,x,y,r,angle,spread,color){
+    this.g=g;this.x=x;this.y=y;this.r=r;this.angle=angle;this.spread=spread;this.color=color;this.life=22;this.dead=false;
+  }
+
+  update(){this.life--;if(this.life<=0)this.dead=true;}
+
+  draw(){
+    const c=this.g.ctx;
+    c.save();
+    c.globalAlpha=this.life/22;
+    c.fillStyle=this.color;
+    c.beginPath();
+    c.moveTo(this.x,this.y);
+    c.arc(this.x,this.y,this.r,this.angle-this.spread/2,this.angle+this.spread/2);
+    c.closePath();
+    c.fill();
+    c.restore();
+  }
+}
+
+class CircleEffect{
+  constructor(g,x,y,r,color){
+    this.g=g;this.x=x;this.y=y;this.r=r;this.color=color;this.life=25;this.dead=false;
+  }
+
+  update(){this.life--;if(this.life<=0)this.dead=true;}
+
+  draw(){
+    const c=this.g.ctx;
+    c.save();
+    c.globalAlpha=this.life/25;
+    c.strokeStyle=this.color;
+    c.lineWidth=4;
+    c.beginPath();
+    c.arc(this.x,this.y,this.r,0,Math.PI*2);
+    c.stroke();
+    c.restore();
+  }
+}
+
+class LineEffect{
+  constructor(g,x1,y1,x2,y2,color="cyan"){
+    this.g=g;this.x1=x1;this.y1=y1;this.x2=x2;this.y2=y2;this.color=color;this.life=20;this.dead=false;
+  }
+
+  update(){this.life--;if(this.life<=0)this.dead=true;}
+
+  draw(){
+    const c=this.g.ctx;
+    c.save();
+    c.globalAlpha=this.life/20;
+    c.strokeStyle=this.color;
+    c.lineWidth=8;
+    c.beginPath();
+    c.moveTo(this.x1,this.y1);
+    c.lineTo(this.x2,this.y2);
+    c.stroke();
+    c.restore();
+  }
+}
+
+const game=new Game();
+</script>
+</body>
+</html>
