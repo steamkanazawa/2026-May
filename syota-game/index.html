@@ -445,8 +445,9 @@ class Game{
   }
 
   damageTarget(t,dmg){
-    if(!t)return;
+    if(!t || t.dead)return;
     t.hp-=dmg;
+    if(t.hpBarTimer!==undefined)t.hpBarTimer=90;
     if(t instanceof Boss){
       if(t.hp<=0)t.dead=true;
     }else{
@@ -466,11 +467,7 @@ class Game{
       this.effects.push(new CircleEffect(this,x,y,r,"orange"));
       this.enemies.forEach(e=>{
         if(!e.dead && Math.hypot(e.x-x,e.y-y)<r){
-          e.hp-=dmg;
-          if(e.hp<=0){
-            e.dead=true;
-            this.kills++;
-          }
+          this.damageTarget(e,dmg);
         }
       });
     }
@@ -697,6 +694,9 @@ class Player{
   }
 
   quickDash(tx,ty){
+    const sx=this.x;
+    const sy=this.y;
+
     let dx=tx-this.x, dy=ty-this.y;
     let d=Math.hypot(dx,dy)||1;
 
@@ -705,22 +705,62 @@ class Player{
       dy=dy/d*this.range;
     }
 
+    let ex=sx+dx;
+    let ey=sy+dy;
+    ex=Math.max(this.r,Math.min(innerWidth-this.r,ex));
+    ey=Math.max(this.r,Math.min(innerHeight-this.r,ey));
+
     for(let i=0;i<10;i++){
-      this.g.trails.push({x:this.x+dx*(i/10),y:this.y+dy*(i/10),life:18});
+      this.g.trails.push({x:sx+(ex-sx)*(i/10),y:sy+(ey-sy)*(i/10),life:18});
     }
 
-    this.x+=dx;
-    this.y+=dy;
-    this.x=Math.max(this.r,Math.min(innerWidth-this.r,this.x));
-    this.y=Math.max(this.r,Math.min(innerHeight-this.r,this.y));
+    // 単押し突進は、着地点だけでなく「通った線上」にいる敵にも当たる
+    this.hitDashRoute(sx,sy,ex,ey);
+
+    this.x=ex;
+    this.y=ey;
     this.attackTimer=10;
+  }
+
+  distancePointToSegment(px,py,x1,y1,x2,y2){
+    const vx=x2-x1;
+    const vy=y2-y1;
+    const wx=px-x1;
+    const wy=py-y1;
+    const len2=vx*vx+vy*vy || 1;
+    let t=(wx*vx+wy*vy)/len2;
+    t=Math.max(0,Math.min(1,t));
+    const cx=x1+vx*t;
+    const cy=y1+vy*t;
+    return Math.hypot(px-cx,py-cy);
+  }
+
+  hitDashRoute(sx,sy,ex,ey){
+    const hitWidth=this.r+8;
+
+    this.g.enemies.forEach(e=>{
+      if(e.dead || e.hitCd>0)return;
+      const dist=this.distancePointToSegment(e.x,e.y,sx,sy,ex,ey);
+      if(dist<e.r+hitWidth){
+        this.g.damageTarget(e,this.attack);
+        e.hitCd=22;
+      }
+    });
+
+    if(this.g.boss && !this.g.boss.dead && this.g.boss.hitCd<=0){
+      const b=this.g.boss;
+      const dist=this.distancePointToSegment(b.x,b.y,sx,sy,ex,ey);
+      if(dist<b.r+hitWidth){
+        this.g.damageTarget(b,this.attack);
+        b.hitCd=20;
+      }
+    }
   }
 
   update(){
     if(this.inv>0)this.inv--;
     if(this.skillCd>0)this.skillCd--;
     if(this.attackTimer>0)this.attackTimer--;
-    if(this.bodyHitCd>0)this.bodyHitCd--;
 
     if(!this.dashing){
       this.boost=Math.min(this.boostMax,this.boost+this.regen);
@@ -887,11 +927,13 @@ class Enemy{
     this.hp=this.hpMax;
     this.speed=0.95+g.stage*0.018;
     this.hitCd=0; // この敵が体当たりで連続ダメージを受けるのを防ぐ
+    this.hpBarTimer=0; // ダメージ後しばらく体力バーを表示
     this.dead=false;
   }
 
   update(){
     if(this.hitCd>0)this.hitCd--;
+    if(this.hpBarTimer>0)this.hpBarTimer--;
     const p=this.g.player;
     let dx=p.x-this.x, dy=p.y-this.y;
     let d=Math.hypot(dx,dy)||1;
@@ -906,9 +948,9 @@ class Enemy{
 
     if(d<this.r+p.r){
       if(p.isAttacking()){
-        if(p.bodyHitCd<=0 && this.hitCd<=0){
+        // パターン1：同じ敵への連続ヒットだけ防ぐ。別の敵には続けて当たれる。
+        if(this.hitCd<=0){
           this.g.damageTarget(this,p.attack);
-          p.bodyHitCd=10;
           this.hitCd=24;
         }
       }else{
@@ -927,11 +969,17 @@ class Enemy{
     c.arc(this.x,this.y,this.r,0,Math.PI*2);
     c.fill();
 
-    if(this.hp<this.hpMax && this.hp>0){
-      c.fillStyle="white";
-      c.fillRect(this.x-14,this.y-22,28,4);
-      c.fillStyle="lime";
-      c.fillRect(this.x-14,this.y-22,28*(this.hp/this.hpMax),4);
+    const showBar = this.hpMax>1 || this.hpBarTimer>0;
+    if(showBar && this.hp>0){
+      const w=34;
+      const h=5;
+      const rate=Math.max(0,Math.min(1,this.hp/this.hpMax));
+      c.fillStyle="rgba(0,0,0,.75)";
+      c.fillRect(this.x-w/2-1,this.y-25,w+2,h+2);
+      c.fillStyle="#444";
+      c.fillRect(this.x-w/2,this.y-24,w,h);
+      c.fillStyle=rate>0.5?"lime":rate>0.25?"yellow":"red";
+      c.fillRect(this.x-w/2,this.y-24,w*rate,h);
     }
   }
 }
@@ -957,6 +1005,7 @@ class Boss{
 
   update(){
     if(this.hitCd>0)this.hitCd--;
+    if(this.hpBarTimer>0)this.hpBarTimer--;
     const p=this.g.player;
     this.timer++;
 
@@ -994,9 +1043,9 @@ class Boss{
 
     if(d<this.r+p.r){
       if(p.isAttacking()){
-        if(p.bodyHitCd<=0 && this.hitCd<=0){
+        // ボスも同じく、ボス自身の被弾クールダウンだけで多段ヒットを防ぐ
+        if(this.hitCd<=0){
           this.g.damageTarget(this,p.attack);
-          p.bodyHitCd=12;
           this.hitCd=20;
         }
       }else{
@@ -1062,8 +1111,9 @@ class Boss{
     c.fillStyle="white";
     c.fillRect(this.x-55,this.y-65,110,8);
 
+    const hpRate=Math.max(0,Math.min(1,this.hp/this.hpMax));
     c.fillStyle="lime";
-    c.fillRect(this.x-55,this.y-65,110*(this.hp/this.hpMax),8);
+    c.fillRect(this.x-55,this.y-65,110*hpRate,8);
   }
 }
 
