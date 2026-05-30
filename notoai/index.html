@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>覚えるAI</title>
+<style>
+body{font-family:sans-serif;background:#111827;color:white;padding:20px}
+#chat{max-width:700px;margin:auto;background:#1f2937;padding:15px;border-radius:15px}
+.msg{padding:10px;margin:8px;border-radius:10px}
+.user{background:#2563eb;text-align:right}
+.ai{background:#374151}
+input,button{font-size:18px;padding:10px;margin-top:8px}
+input{width:70%}
+</style>
+</head>
+<body>
+
+<div id="chat">
+<h1>覚えるAI</h1>
+<div id="log"></div>
+<input id="text" placeholder="例：りんご=赤いくだもの">
+<button onclick="send()">送信</button>
+</div>
+
+<script>
+let memory = JSON.parse(localStorage.getItem("aiMemory")) || {};
+const log = document.getElementById("log");
+const text = document.getElementById("text");
+
+function add(msg, type){
+  log.innerHTML += `<div class="msg ${type}">${msg}</div>`;
+}
+
+function save(){
+  localStorage.setItem("aiMemory", JSON.stringify(memory));
+}
+
+function reply(input){
+  if(input.includes("=")){
+    const parts = input.split("=");
+    const key = parts[0].trim();
+    const value = parts.slice(1).join("=").trim();
+
+    if(key && value){
+      memory[key] = value;
+      save();
+      return `覚えたよ。「${key}」は「${value}」だね。`;
+    }
+  }
+
+  if(memory[input]){
+    return memory[input];
+  }
+
+  for(const key in memory){
+    if(input.includes(key)){
+      return `「${key}」なら、${memory[key]}だよ。`;
+    }
+  }
+
+  return "まだ知らない。 「言葉=意味」 の形で教えて！";
+}
+
+function send(){
+  const v = text.value.trim();
+  if(!v) return;
+
+  add(v, "user");
+  add(reply(v), "ai");
+  text.value = "";
+}
+
+text.addEventListener("keydown", e=>{
+  if(e.key === "Enter") send();
+});
+
+add("こんにちは。言葉を教えると覚えるよ。", "ai");
+</script>
+
+</body>
+</html>
