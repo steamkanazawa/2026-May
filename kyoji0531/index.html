@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>マリオシリーズ風 クイズコース</title>
+<style>
+  body {
+    margin: 0;
+    font-family: sans-serif;
+    background: #7ecbff;
+    text-align: center;
+  }
+  #game {
+    max-width: 900px;
+    margin: auto;
+    padding: 10px;
+  }
+  #status {
+    display: flex;
+    justify-content: space-around;
+    background: white;
+    border: 3px solid #333;
+    border-radius: 12px;
+    padding: 10px;
+    font-weight: bold;
+  }
+  #stage {
+    height: 280px;
+    margin-top: 15px;
+    background: linear-gradient(#7ecbff 0 65%, #44aa44 65% 100%);
+    border: 4px solid #333;
+    border-radius: 15px;
+    position: relative;
+    overflow: hidden;
+  }
+  .ground {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: 45px;
+    background: #9b5a25;
+  }
+  #player {
+    position: absolute;
+    bottom: 45px;
+    left: 80px;
+    width: 45px;
+    height: 55px;
+    background: red;
+    border-radius: 10px 10px 5px 5px;
+    color: white;
+    font-weight: bold;
+    line-height: 55px;
+    transition: .5s;
+  }
+  #enemy {
+    position: absolute;
+    bottom: 45px;
+    right: 140px;
+    width: 60px;
+    height: 45px;
+    background: brown;
+    border-radius: 50% 50% 20% 20%;
+    color: white;
+    line-height: 45px;
+    font-size: 13px;
+  }
+  #block {
+    position: absolute;
+    bottom: 120px;
+    right: 160px;
+    width: 45px;
+    height: 45px;
+    background: gold;
+    border: 3px solid #333;
+    line-height: 45px;
+    font-weight: bold;
+    display: none;
+  }
+  #message {
+    margin-top: 10px;
+    font-size: 20px;
+    font-weight: bold;
+  }
+  #quizBox {
+    background: white;
+    border: 4px solid #333;
+    border-radius: 15px;
+    margin-top: 15px;
+    padding: 15px;
+  }
+  #question {
+    font-size: 22px;
+    font-weight: bold;
+    margin-bottom: 12px;
+  }
+  button {
+    font-size: 18px;
+    padding: 12px;
+    margin: 6px;
+    border-radius: 10px;
+    border: 3px solid #333;
+    cursor: pointer;
+    background: #fff7c2;
+  }
+  button:hover {
+    background: #ffe66d;
+  }
+  .choice {
+    display: block;
+    width: 90%;
+    margin: 8px auto;
+  }
+  #startBtn {
+    background: #ff5555;
+    color: white;
+    font-size: 24px;
+  }
+</style>
+</head>
+<body>
+<div id="game">
+  <h1>クイズコース WORLD 1-1</h1>
+
+  <div id="status">
+    <div>ライフ：<span id="life">5</span></div>
+    <div>状態：<span id="form">通常</span></div>
+    <div>コイン：<span id="coins">0</span></div>
+    <div>ボスHP：<span id="bossHp">-</span></div>
+  </div>
+
+  <div id="stage">
+    <div id="player">M</div>
+    <div id="enemy"></div>
+    <div id="block">?</div>
+    <div class="ground"></div>
+  </div>
+
+  <div id="message">スタートボタンを押してね</div>
+
+  <div id="quizBox">
+    <div id="question">準備OK？</div>
+    <div id="choices"></div>
+    <button id="startBtn" onclick="startGame()">ゲームスタート</button>
+  </div>
+</div>
+
+<script>
+let life = 5;
+let coins = 0;
+let form = "通常";
+let current = 0;
+let bossHp = 0;
+let checkpoint = 6;
+
+const events = [
+  {
+    type: "enemy",
+    enemy: "クリボー",
+    question: "マリオの弟の名前は？",
+    choices: ["ルイージ", "ワリオ", "ヨッシー", "キノピオ"],
+    answer: 0
+  },
+  {
+    type: "enemy",
+    enemy: "パタクリボー",
+    question: "羽が生えたクリボー系の敵は？",
+    choices: ["パタクリボー", "メット", "ゲッソー", "テレサ"],
+    answer: 0
+  },
+  {
+    type: "power",
+    item: "スーパーキノコ",
+    message: "？ブロックからスーパーキノコ！ スーパーマリオになった！",
+    newForm: "スーパー"
+  },
+  {
+    type: "enemy",
+    enemy: "ノコノコ",
+    question: "ノコノコが背負っているものは？",
+    choices: ["こうら", "帽子", "リュック", "盾"],
+    answer: 0
+  },
+  {
+    type: "enemy",
+    enemy: "赤ノコノコ",
+    question: "マリオシリーズでよく出る乗り物の恐竜キャラは？",
+    choices: ["ヨッシー", "クッパ", "ワリオ", "ルドウィッグ"],
+    answer: 0
+  },
+  {
+    type: "enemy",
+    enemy: "パックン",
+    question: "土管から出てくる植物の敵といえば？",
+    choices: ["パックンフラワー", "クリボー", "ジュゲム", "キラー"],
+    answer: 0
+  },
+  {
+    type: "checkpoint",
+    question: "中間問題：ファイアマリオが投げるものは？",
+    choices: ["ファイアボール", "氷", "こうら", "星"],
+    answer: 0
+  },
+  {
+    type: "enemy",
+    enemy: "ハンマーブロス",
+    question: "ハンマーブロスが投げるものは？",
+    choices: ["ハンマー", "バナナ", "コイン", "キノコ"],
+    answer: 0
+  },
+  {
+    type: "enemy",
+    enemy: "ジュゲム",
+    question: "ジュゲムが乗っているものは？",
+    choices: ["雲", "車", "船", "土管"],
+    answer: 0
+  },
+  {
+    type: "rescue",
+    question: "救済問題：マリオが集める金色のものは？",
+    choices: ["コイン", "石", "葉っぱ", "本"],
+    answer: 0
+  },
+  {
+    type: "enemy",
+    enemy: "キラー",
+    question: "黒い弾丸のような敵は？",
+    choices: ["キラー", "ゲッソー", "テレサ", "メット"],
+    answer: 0
+  },
+  {
+    type: "lastPower",
+    question: "ボス前問題：ファイアフラワーを取ると何になる？",
+    choices: ["ファイアマリオ", "小さいマリオ", "ネコマリオ", "無敵マリオ"],
+    answer: 0
+  },
+  {
+    type: "boss",
+    enemy: "ブンブン",
+    question: "ボス戦1：クッパ軍団のボスキャラとして出ることがあるのは？",
+    choices: ["ブンブン", "ピーチ", "デイジー", "ポリーン"],
+    answer: 0
+  },
+  {
+    type: "boss",
+    enemy: "ブンブン",
+    question: "ボス戦2：マリオが敵を倒す基本アクションは？",
+    choices: ["ジャンプで踏む", "寝る", "泳ぐだけ", "話すだけ"],
+    answer: 0
+  },
+  {
+    type: "boss",
+    enemy: "ブンブン",
+    question: "ボス戦3：スターを取るとどうなる？",
+    choices: ["一定時間無敵", "動けなくなる", "コインが減る", "敵になる"],
+    answer: 0
+  }
+];
+
+function startGame() {
+  life = 5;
+  coins = 0;
+  form = "通常";
+  current = 0;
+  bossHp = 0;
+  document.getElementById("startBtn").style.display = "none";
+  showEvent();
+  updateStatus();
+}
+
+function updateStatus() {
+  document.getElementById("life").textContent = life;
+  document.getElementById("coins").textContent = coins;
+  document.getElementById("form").textContent = form;
+  document.getElementById("bossHp").textContent = bossHp > 0 ? bossHp : "-";
+}
+
+function showEvent() {
+  const e = events[current];
+  const enemy = document.getElementById("enemy");
+  const block = document.getElementById("block");
+
+  block.style.display = "none";
+  enemy.style.display = "block";
+
+  if (!e) {
+    clearGame();
+    return;
+  }
+
+  if (e.type === "power") {
+    enemy.style.display = "none";
+    block.style.display = "block";
+    form = e.newForm;
+    coins += 5;
+    document.getElementById("message").textContent = e.message;
+    document.getElementById("question").textContent = "パワーアップ成功！";
+    document.getElementById("choices").innerHTML =
+      `<button onclick="nextEvent()">進む</button>`;
+    updateStatus();
+    return;
+  }
+
+  if (e.type === "checkpoint") {
+    enemy.textContent = "中間";
+    document.getElementById("message").textContent = "中間ポイント！ 正解でファイアフラワー！";
+  } else if (e.type === "rescue") {
+    enemy.textContent = "救済";
+    document.getElementById("message").textContent = "救済チャンス！ 正解でファイアマリオ復帰！";
+  } else if (e.type === "lastPower") {
+    enemy.textContent = "ボス前";
+    document.getElementById("message").textContent = "ボス前の最後の通常問題！";
+  } else if (e.type === "boss") {
+    enemy.textContent = "ブンブン";
+    if (bossHp === 0) bossHp = 3;
+    document.getElementById("message").textContent = "ボス戦！ 3問正解で撃破！";
+  } else {
+    enemy.textContent = e.enemy;
+    document.getElementById("message").textContent = e.enemy + " が現れた！";
+  }
+
+  document.getElementById("question").textContent = e.question;
+
+  let html = "";
+  e.choices.forEach((c, i) => {
+    html += `<button class="choice" onclick="answer(${i})">${c}</button>`;
+  });
+  document.getElementById("choices").innerHTML = html;
+  updateStatus();
+}
+
+function answer(num) {
+  const e = events[current];
+
+  if (num === e.answer) {
+    correct(e);
+  } else {
+    wrong(e);
+  }
+}
+
+function correct(e) {
+  coins += 10;
+
+  if (e.type === "checkpoint") {
+    form = "ファイア";
+    coins += 20;
+    document.getElementById("message").textContent =
+      "正解！ チェックポイント通過！ ファイアフラワー入手！";
+    current++;
+  } else if (e.type === "rescue") {
+    form = "ファイア";
+    document.getElementById("message").textContent =
+      "正解！ 救済ファイアフラワーでファイアマリオ復帰！";
+    current++;
+  } else if (e.type === "lastPower") {
+    form = "ファイア";
+    document.getElementById("message").textContent =
+      "正解！ 3つ目のファイアフラワー入手！ いざボス戦へ！";
+    current++;
+  } else if (e.type === "boss") {
+    bossHp--;
+    document.getElementById("message").textContent =
+      "正解！ ファイアボール命中！ ボスHP -" + 1;
+
+    if (bossHp <= 0) {
+      current = events.length;
+      setTimeout(clearGame, 700);
+      updateStatus();
+      return;
+    } else {
+      current++;
+    }
+  } else {
+    document.getElementById("message").textContent =
+      "正解！ " + e.enemy + " を倒した！";
+    current++;
+  }
+
+  updateStatus();
+  setTimeout(showEvent, 700);
+}
+
+function wrong(e) {
+  let damage = e.type === "boss" ? 2 : 1;
+
+  if (form === "ファイア") {
+    form = "スーパー";
+    damage = 0;
+    document.getElementById("message").textContent =
+      "不正解！ でもファイア状態が身代わりになった！";
+  } else {
+    life -= damage;
+    document.getElementById("message").textContent =
+      "不正解！ ライフ -" + damage;
+  }
+
+  if (life <= 0) {
+    gameOver();
+    return;
+  }
+
+  updateStatus();
+}
+
+function nextEvent() {
+  current++;
+  showEvent();
+}
+
+function gameOver() {
+  document.getElementById("message").textContent =
+    "ゲームオーバー！ チェックポイントから再開できるよ。";
+  document.getElementById("question").textContent = "どうする？";
+  document.getElementById("choices").innerHTML =
+    `<button onclick="restartFromCheckpoint()">チェックポイントから再開</button>
+     <button onclick="startGame()">最初から</button>`;
+}
+
+function restartFromCheckpoint() {
+  life = 5;
+  form = "ファイア";
+  bossHp = 0;
+  current = checkpoint + 1;
+  showEvent();
+  updateStatus();
+}
+
+function clearGame() {
+  document.getElementById("enemy").style.display = "none";
+  document.getElementById("block").style.display = "none";
+  document.getElementById("message").textContent = "ブンブン撃破！ WORLD 1-1 クリア！";
+  document.getElementById("question").textContent =
+    "クリア！ コイン：" + coins + "枚";
+  document.getElementById("choices").innerHTML =
+    `<button onclick="startGame()">もう一度遊ぶ</button>`;
+  updateStatus();
+}
+</script>
+</body>
+</html>
