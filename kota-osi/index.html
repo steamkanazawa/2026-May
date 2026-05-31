@@ -1,245 +1,214 @@
 <!DOCTYPE html>
 <html lang="ja">
-
 <head>
-    <meta charset="UTF-8">
-    <title>
-        紹介サイトdaaaaaaaaaaaaaaaaaaaaa
-    </title>
-    <style>
- body {
-    background-color: rgba(34, 255, 0, 0.249);
-    color: rgb(0, 0, 0);
-    text-align: center;
- }
- h1{
-    background-color: rgba(0, 0, 0, 0);
-    color: black;
- }
-
- ul{
-    background-color: rgba(255, 255, 255, 0.226);
-    color: rgb(89, 113, 100);
-    display: inline-block;
-    text-align: left;
- }
-
-    </style>
+<meta charset="UTF-8">
+<title>弾よけゲーム</title>
+<style>
+body{
+  margin:0;
+  background:#111;
+  color:white;
+  font-family:sans-serif;
+  text-align:center;
+}
+canvas{
+  background:#000;
+  border:4px solid white;
+  margin-top:20px;
+}
+button{
+  font-size:20px;
+  padding:10px 25px;
+  margin-top:15px;
+}
+</style>
 </head>
-
 <body>
 
-<h1> 推し紹介:マイクラ </h1>>
-<img src="https://www.minecraft.net/content/dam/minecraftnet/games/minecraft/key-art/Homepage_Discover-our-games_MC-Vanilla-KeyArt_864x864.jpg" alt="maikuragazou" width="200">
-<h2> このゲームは世界一売れたゲームですyoyoyyoyoyoyo</h2>
-<img src="https://media.tocana.jp/wp-content/uploads/2021/06/2ce911a2a1e089b830511c2e3c581e2b.jpg" alt="maikuragazou2" width="400">
-<h3>今日はマイクラの魅力三選</H3>
-<ul>
-    <li>一つ目自由度が高いこと</li>
-<li>二つ目軽いこと</li>
-<li>三つ目いろんな人がやっていて参考にしやすいこと</li>
-</ul>
+<h1>弾よけゲーム</h1>
+<p>WASD / 矢印キーでハートを動かして弾をよけろ！</p>
+<canvas id="game" width="600" height="400"></canvas>
 <br>
-<img src="data:image/jpeg;base64,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" alt="まいくらがぞう">
-<p>
-    もっと詳しく知りたい人は
-    <a href="https://www.minecraft.net/ja-jp" target="_blank">公式サイト</a>
-    をチェック
-</p>
-<hr>
-<h2>まいくらくいず</h2>
-
-<button onclick="check('ハチ')">ハチ</button>
-<button onclick="check('クマ')">クマ</button>
-<button onclick="check('カニ')">カニ</button>
-
-<button onclick="janken('グー')">グー</button>
-<button onclick="janken('チョキ')">チョキ</button>
-<button onclick="janken('パー')">パー</button>
+<button onclick="startGame()">スタート</button>
 
 <script>
-function check(kaitou){
-    if (kaitou === "カニ"){
-        alert("正解");
-    } else {
-        alert("不正解");
-    }
-}
-function janken(player){
-    const hands = ["グー", "チョキ", "パー"];
-    const cpu = hands[Math.floor(Math.random() * 3)];
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 
-    if (player === cpu){
-        alert("あいこ！ 相手も " + cpu);
-    } else if (
-        (player === "グー" && cpu === "チョキ") ||
-        (player === "チョキ" && cpu === "パー") ||
-        (player === "パー" && cpu === "グー")
-    ){
-        alert("勝ち！ 相手は " + cpu);
-    } else {
-        alert("負け！ 相手は " + cpu);
-    }
-}
-</script>
-<style>
-body {
-    background: linear-gradient(#6cc04a, #3a7d2c);
-    font-family: "Arial Black", sans-serif;
-    text-align: center;
-    color: white;
-}
+let player;
+let bullets;
+let keys = {};
+let hp;
+let score;
+let gameOver;
+let playing;
+let spawnTimer;
 
-/* タイトル */
-h1 {
-    background: #4d2e1a;
-    display: inline-block;
-    padding: 10px 20px;
-    border: 4px solid #2b1a0f;
-    box-shadow: 4px 4px 0px #1a0f08;
-}
+const box = {
+  x: 80,
+  y: 70,
+  w: 440,
+  h: 260
+};
 
-/* 見出し */
-h2 {
-    margin-top: 40px;
-    background: rgba(0,0,0,0.4);
-    display: inline-block;
-    padding: 8px 15px;
-    border: 3px solid white;
+document.addEventListener("keydown", e=>{
+  keys[e.key.toLowerCase()] = true;
+});
+
+document.addEventListener("keyup", e=>{
+  keys[e.key.toLowerCase()] = false;
+});
+
+function startGame(){
+  player = {
+    x: canvas.width / 2,
+    y: canvas.height / 2,
+    size: 14,
+    speed: 4
+  };
+
+  bullets = [];
+  hp = 100;
+  score = 0;
+  gameOver = false;
+  playing = true;
+  spawnTimer = 0;
+
+  requestAnimationFrame(loop);
 }
 
-/* ボタン（ブロック風） */
-button {
-    background: #7a5c3a;
-    color: white;
-    border: 3px solid #3b2a1a;
-    padding: 10px 20px;
-    margin: 5px;
-    font-size: 16px;
-    cursor: pointer;
-    box-shadow: 4px 4px 0px #1a0f08;
-    transition: 0.1s;
-}
+function spawnBullet(){
+  const side = Math.floor(Math.random() * 4);
+  let x, y;
 
-/* 押した感じ */
-button:active {
-    transform: translate(4px, 4px);
-    box-shadow: none;
-}
+  if(side === 0){
+    x = Math.random() * canvas.width;
+    y = -20;
+  }else if(side === 1){
+    x = canvas.width + 20;
+    y = Math.random() * canvas.height;
+  }else if(side === 2){
+    x = Math.random() * canvas.width;
+    y = canvas.height + 20;
+  }else{
+    x = -20;
+    y = Math.random() * canvas.height;
+  }
 
-/* リスト（インベントリ風） */
-ul {
-    display: inline-block;
-    text-align: left;
-    background: rgba(0,0,0,0.4);
-    padding: 15px;
-    border: 3px solid white;
-}
+  const angle = Math.atan2(player.y - y, player.x - x);
+  const speed = 2 + Math.random() * 2 + score * 0.002;
 
-/* 画像 */
-img {
-    border: 5px solid #2b1a0f;
-    box-shadow: 6px 6px 0px #1a0f08;
-}
-</style>
-<style>
-body {
-    background: linear-gradient(#6cc04a, #3a7d2c);
-    text-align: center;
-    font-family: Arial, sans-serif;
-    color: white;
-}
-
-/* タイトル */
-h1 {
-    background: #4d2e1a;
-    display: inline-block;
-    padding: 10px 20px;
-    border: 4px solid #2b1a0f;
-    box-shadow: 4px 4px 0 #1a0f08;
-}
-
-/* ブロックボタン */
-#block {
-    width: 200px;
-    height: 200px;
-    background: #8b5a2b;
-    margin: 20px auto;
-    border: 6px solid #3b2a1a;
-    box-shadow: 6px 6px 0 #1a0f08;
-    cursor: pointer;
-    font-size: 20px;
-    line-height: 200px;
-    user-select: none;
-    transition: 0.1s;
-}
-
-#block:active {
-    transform: scale(0.95);
-}
-
-/* スコア */
-#score {
-    font-size: 30px;
-    margin: 10px;
-}
-
-/* ボタン */
-button {
-    background: #7a5c3a;
-    color: white;
-    border: 3px solid #3b2a1a;
-    padding: 10px 15px;
-    margin: 5px;
-    cursor: pointer;
-    box-shadow: 4px 4px 0 #1a0f08;
-}
-
-button:active {
-    transform: translate(3px,3px);
-    box-shadow: none;
-}
-</style>
-
-</head>
-
-<body>
-
-<h1>⛏ マイクラクリッカー</h1>
-
-<div id="score">0</div>
-
-<div id="block" onclick="mine()">⛏ ブロック</div>
-
-<button onclick="upgrade()">つるはし強化（+1） 10点</button>
-
-<script>
-let score = 0;
-let power = 1;
-
-function mine(){
-    score += power;
-    update();
-}
-
-function upgrade(){
-    if(score >= 10){
-        score -= 10;
-        power += 1;
-        alert("つるはし強化！パワー +1");
-        update();
-    } else {
-        alert("スコアが足りない！");
-    }
+  bullets.push({
+    x:x,
+    y:y,
+    r:7,
+    vx:Math.cos(angle) * speed,
+    vy:Math.sin(angle) * speed
+  });
 }
 
 function update(){
-    document.getElementById("score").innerText = "スコア: " + score;
+  if(!playing) return;
+
+  if(keys["w"] || keys["arrowup"]) player.y -= player.speed;
+  if(keys["s"] || keys["arrowdown"]) player.y += player.speed;
+  if(keys["a"] || keys["arrowleft"]) player.x -= player.speed;
+  if(keys["d"] || keys["arrowright"]) player.x += player.speed;
+
+  if(player.x < box.x) player.x = box.x;
+  if(player.x > box.x + box.w) player.x = box.x + box.w;
+  if(player.y < box.y) player.y = box.y;
+  if(player.y > box.y + box.h) player.y = box.y + box.h;
+
+  spawnTimer++;
+  if(spawnTimer > Math.max(8, 35 - score / 80)){
+    spawnBullet();
+    spawnTimer = 0;
+  }
+
+  for(let i = bullets.length - 1; i >= 0; i--){
+    const b = bullets[i];
+    b.x += b.vx;
+    b.y += b.vy;
+
+    const dx = player.x - b.x;
+    const dy = player.y - b.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    if(dist < player.size + b.r){
+      hp -= 10;
+      bullets.splice(i, 1);
+
+      if(hp <= 0){
+        hp = 0;
+        gameOver = true;
+        playing = false;
+      }
+      continue;
+    }
+
+    if(b.x < -50 || b.x > canvas.width + 50 || b.y < -50 || b.y > canvas.height + 50){
+      bullets.splice(i, 1);
+    }
+  }
+
+  score++;
 }
+
+function drawHeart(x, y, size){
+  ctx.fillStyle = "red";
+  ctx.beginPath();
+  ctx.moveTo(x, y + size / 3);
+  ctx.bezierCurveTo(x - size, y - size / 2, x - size * 1.4, y + size / 2, x, y + size);
+  ctx.bezierCurveTo(x + size * 1.4, y + size / 2, x + size, y - size / 2, x, y + size / 3);
+  ctx.fill();
+}
+
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  ctx.strokeStyle = "white";
+  ctx.lineWidth = 4;
+  ctx.strokeRect(box.x, box.y, box.w, box.h);
+
+  drawHeart(player.x, player.y, player.size);
+
+  ctx.fillStyle = "cyan";
+  for(const b of bullets){
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.fillStyle = "white";
+  ctx.font = "22px sans-serif";
+  ctx.fillText("HP: " + hp, 20, 35);
+  ctx.fillText("SCORE: " + Math.floor(score / 10), 430, 35);
+
+  if(!playing && gameOver){
+    ctx.fillStyle = "rgba(0,0,0,0.7)";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    ctx.fillStyle = "white";
+    ctx.font = "40px sans-serif";
+    ctx.fillText("GAME OVER", 180, 190);
+
+    ctx.font = "22px sans-serif";
+    ctx.fillText("スコア: " + Math.floor(score / 10), 245, 230);
+    ctx.fillText("スタートボタンで再挑戦", 190, 270);
+  }
+}
+
+function loop(){
+  update();
+  draw();
+  if(playing){
+    requestAnimationFrame(loop);
+  }
+}
+
+draw();
 </script>
 
-
 </body>
-
-
 </html>
