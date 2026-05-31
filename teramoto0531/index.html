@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ピアノ・フルオート・チューナー</title>
+    <style>
+        :root {
+            --accent: #00ff7f;
+            --bg-color: #0a0a0a;
+            --text-main: #e0e0e0;
+            --error: #ff4757;
+        }
+
+        body { 
+            font-family: 'Helvetica Neue', Arial, sans-serif; 
+            background: var(--bg-color); 
+            color: var(--text-main); 
+            text-align: center; 
+            margin: 0; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container { 
+            width: 95%;
+            max-width: 500px; 
+            background: linear-gradient(145deg, #1e1e1e, #111);
+            padding: 50px 20px; 
+            border-radius: 40px; 
+            box-shadow: 0 30px 60px rgba(0,0,0,0.8);
+            border: 1px solid #333;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            background: #222;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            color: #666;
+            margin-bottom: 20px;
+            letter-spacing: 1px;
+        }
+
+        /* メーターエリア */
+        .meter-container { position: relative; margin: 30px 0; }
+        .meter-area { 
+            position: relative; width: 100%; height: 120px; 
+            background: #000; border-radius: 25px; 
+            border: 2px solid #333; overflow: hidden;
+            background-image: linear-gradient(90deg, transparent 49.7%, #444 49.7%, #444 50.3%, transparent 50.3%);
+        }
+
+        .meter-dots {
+            position: absolute; width: 100%; height: 100%;
+            background-image: radial-gradient(circle, #222 1px, transparent 1px);
+            background-size: 5% 100%;
+        }
+
+        .needle { 
+            position: absolute; top: 0; left: 50%; width: 4px; height: 100%; 
+            background: var(--error); transform: translateX(-50%); 
+            transition: left 0.1s ease-out; z-index: 10;
+        }
+        .needle::after {
+            content: ''; position: absolute; bottom: 0; left: -6px;
+            border-left: 8px solid transparent; border-right: 8px solid transparent;
+            border-bottom: 15px solid var(--error);
+        }
+
+        .scale-label { display: flex; justify-content: space-between; padding: 10px 15px; color: #555; font-size: 0.8rem; font-weight: bold; }
+
+        /* メイン表示 */
+        .note-display { font-size: 7rem; font-weight: bold; margin: 0; color: var(--accent); line-height: 1.1; }
+        .cents-display { font-size: 2rem; color: #888; margin-bottom: 30px; }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            border-top: 1px solid #222;
+            padding-top: 20px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: #444;
+        }
+
+        #startBtn { 
+            background: var(--accent); color: #000; border: none; 
+            padding: 22px 70px; font-size: 1.3rem; font-weight: bold; 
+            border-radius: 50px; cursor: pointer; transition: 0.3s;
+            box-shadow: 0 10px 25px rgba(0,255,127,0.3);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="status-badge">AUTO PITCH DETECTION</div>
+
+    <div class="meter-container">
+        <div class="meter-area">
+            <div class="meter-dots"></div>
+            <div id="needle" class="needle"></div>
+        </div>
+        <div class="scale-label"><span>LOW</span><span>PERFECT</span><span>HIGH</span></div>
+    </div>
+
+    <div class="note-display" id="noteResult">--</div>
+    <div class="cents-display"><span id="centsValue">0.0</span> <small>cents</small></div>
+    
+    <div class="info-grid">
+        <div>TARGET: <span id="targetHz">0.0</span>Hz</div>
+        <div>INPUT: <span id="currentHz">0.0</span>Hz</div>
+    </div>
+
+    <div style="margin-top: 40px;">
+        <button id="startBtn">チューナーを起動</button>
+    </div>
+</div>
+
+<script>
+    const notes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+    const baseHz = 442; // ピアノ基準ピッチ
+    let audioCtx, analyser, dataArray;
+
+    async function start() {
+        try {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const source = audioCtx.createMediaStreamSource(stream);
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 16384; // オート判定の精度を上げるために解像度を最大化
+            source.connect(analyser);
+            dataArray = new Float32Array(analyser.frequencyBinCount);
+            document.getElementById('startBtn').style.display = 'none';
+            loop();
+        } catch (err) {
+            alert("マイクの使用を許可してください。");
+        }
+    }
+
+    function loop() {
+        requestAnimationFrame(loop);
+        analyser.getFloatFrequencyData(dataArray);
+
+        let maxVal = -Infinity;
+        let maxIndex = -1;
+        
+        // ピアノの音域（約27Hz〜4186Hz）を重点的にスキャン
+        for (let i = 0; i < dataArray.length; i++) {
+            if (dataArray[i] > maxVal) {
+                maxVal = dataArray[i];
+                maxIndex = i;
+            }
+        }
+
+        const currentFreq = maxIndex * audioCtx.sampleRate / analyser.fftSize;
+
+        // 一定以上の音量がある場合のみ処理
+        if (maxVal > -65 && currentFreq > 20) {
+            // 周波数からMIDIノート番号を逆算: n = 12 * log2(f/442) + 69
+            const n = Math.round(12 * Math.log2(currentFreq / baseHz) + 69);
+            
+            // ノート番号から音名とオクターブを算出
+            const noteName = notes[n % 12];
+            const octave = Math.floor(n / 12) - 1;
+            
+            // その音名の本来の周波数を計算（ターゲット）
+            const targetFreq = baseHz * Math.pow(2, (n - 69) / 12);
+            
+            // ズレ（セント）を計算
+            const cents = 1200 * Math.log2(currentFreq / targetFreq);
+
+            // 表示更新
+            document.getElementById('noteResult').innerText = noteName + octave;
+            document.getElementById('centsValue').innerText = (cents > 0 ? "+" : "") + cents.toFixed(1);
+            document.getElementById('currentHz').innerText = currentFreq.toFixed(1);
+            document.getElementById('targetHz').innerText = targetFreq.toFixed(1);
+
+            // メーター制御
+            let pos = 50 + (cents);
+            pos = Math.max(0, Math.min(100, pos));
+            const needle = document.getElementById('needle');
+            const display = document.getElementById('noteResult');
+            
+            needle.style.left = pos + "%";
+
+            // 視覚フィードバック
+            if (Math.abs(cents) < 3) {
+                needle.style.background = "var(--accent)";
+                needle.style.boxShadow = "0 0 15px var(--accent)";
+                display.style.color = "var(--accent)";
+            } else {
+                needle.style.background = "var(--error)";
+                needle.style.boxShadow = "none";
+                display.style.color = "var(--text-main)";
+            }
+        }
+    }
+
+    document.getElementById('startBtn').onclick = start;
+</script>
+
+</body>
+</html>
