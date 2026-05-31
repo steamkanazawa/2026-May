@@ -2,40 +2,24 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Cosmic Station - Research & Expansion</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cosmic Station - Sound FX</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-        body { background: #000; color: #fff; font-family: 'Press Start 2P', cursive; margin: 0; overflow: hidden; }
-        canvas { image-rendering: pixelated; width: 100vw; height: 100vh; display: block; }
-        
-        /* 拠点別UIパネル */
-        .ui-panel { 
-            position: absolute; right: 20px; top: 80px; width: 340px; 
-            background: rgba(10, 10, 30, 0.95); border: 4px solid #555; padding: 20px; 
-            box-shadow: 0 0 30px #000; z-index: 100; display: none;
+        body { 
+            background: #000; color: #fff; font-family: 'Press Start 2P', cursive; margin: 0; overflow: hidden; 
+            touch-action: manipulation; user-select: none; -webkit-user-select: none;
         }
+        canvas { image-rendering: pixelated; width: 100vw; height: 100vh; display: block; background: #000; }
+        .ui-panel { position: absolute; right: 10px; top: 70px; width: calc(100% - 40px); max-width: 320px; background: rgba(10, 10, 30, 0.95); border: 4px solid #555; padding: 15px; box-shadow: 0 0 20px #000; z-index: 100; display: none; box-sizing: border-box; }
         .ui-active { display: block; }
-        #main-panel { border-color: #777; }
-        #research-panel { border-color: #f0f; }
-
-        /* 左上のステータス */
-        #stats {
-            position: absolute; left: 20px; top: 20px; pointer-events: none;
-            background: rgba(0,0,0,0.6); padding: 10px; border: 2px solid #333;
-        }
-        .stat-line { font-size: 10px; margin-bottom: 8px; display: flex; align-items: center; }
+        #stats { position: absolute; left: 10px; top: 10px; background: rgba(0,0,0,0.8); padding: 8px; border: 2px solid #333; z-index: 90; min-width: 160px; }
+        .stat-line { font-size: 9px; margin-bottom: 5px; display: flex; align-items: center; }
         .icon-star { color: #aaa; margin-right: 10px; }
         .icon-res { color: #f0f; margin-right: 10px; }
-
-        .item-btn { 
-            width: 100%; background: #222; color: #fff; border: 4px solid #444; 
-            padding: 12px; margin-top: 10px; font-family: 'Press Start 2P', cursive; font-size: 8px; cursor: pointer;
-        }
-        .item-btn:hover:not(:disabled) { background: #333; }
-        #research-panel .item-btn:hover:not(:disabled) { border-color: #f0f; }
-        .item-btn:disabled { color: #444; border-color: #222; cursor: not-allowed; }
-        
-        .tab-hint { position: absolute; bottom: 20px; left: 20px; font-size: 8px; color: #666; }
+        .item-btn { width: 100%; background: #222; color: #fff; border: 4px solid #444; padding: 10px; margin-top: 8px; font-family: 'Press Start 2P', cursive; font-size: 8px; cursor: pointer; }
+        #toggle-btn { position: absolute; right: 10px; top: 10px; background: #222; color: #0f0; border: 2px solid #555; padding: 8px; font-family: 'Press Start 2P', cursive; font-size: 8px; cursor: pointer; z-index: 110; }
+        #audio-status { position: absolute; left: 10px; bottom: 10px; font-size: 6px; color: #888; pointer-events: none; }
     </style>
 </head>
 <body>
@@ -44,224 +28,264 @@
     <div class="stat-line"><span class="icon-star">★</span><span id="star-count">0</span> (+<span id="star-rate">0.0</span>/s)</div>
     <div class="stat-line"><span class="icon-res">●</span><span id="res-count">0</span> (+<span id="res-rate">0.0</span>/s)</div>
 </div>
+<button id="toggle-btn">MENU</button>
+<div id="audio-status">BGM: OFFLINE (TAP SCREEN)</div>
 
 <div id="main-panel" class="ui-panel ui-active">
-    <div style="font-size:12px; color:#aaa; margin-bottom:15px;">MAIN COMMAND</div>
-    <button class="item-btn" id="buy-drone">ADD MINING DRONE<span id="d-cost" style="display:block; font-size:6px; color:#666; margin-top:5px;">COST: 15 ★</span></button>
-    <button class="item-btn" id="buy-research-station" disabled>BUILD RESEARCH ST.<span style="display:block; font-size:6px; color:#666; margin-top:5px;">COST: 500 ★</span></button>
+    <div style="font-size:10px; color:#aaa; margin-bottom:10px;">MAIN COMMAND</div>
+    <button class="item-btn" id="buy-drone">ADD DRONE<br><span id="d-cost" style="font-size:6px; color:#666;">COST: 15 ★</span></button>
+    <button class="item-btn" id="buy-research-station">BUILD LAB<br><span style="font-size:6px; color:#666;">COST: 500 ★</span></button>
 </div>
 
 <div id="research-panel" class="ui-panel">
-    <div style="font-size:12px; color:#f0f; margin-bottom:15px;">RESEARCH LAB</div>
-    <button class="item-btn" id="convert-drone">CONVERT DRONE → LAB<span style="display:block; font-size:6px; color:#666; margin-top:5px;">CONSUME 1 DRONE</span></button>
-    <button class="item-btn" id="upgrade-lab" disabled>ENHANCE RESEARCH<span id="l-cost" style="display:block; font-size:6px; color:#666; margin-top:5px;">COST: 20 ●</span></button>
+    <div style="font-size:10px; color:#f0f; margin-bottom:10px;">RESEARCH LAB</div>
+    <button class="item-btn" id="convert-drone">CONVERT DRONE<br><span style="font-size:6px; color:#666;">USE 1 MINER</span></button>
 </div>
 
-<div class="tab-hint">CLICK STATIONS TO SWITCH MENUS</div>
 <canvas id="gameCanvas"></canvas>
 
 <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
-    let width, height, stars = 0, resPoints = 0, time = 0;
+    let width, height, stars_val = 0, resPoints = 0, time = 0;
     
-    // ゲームデータ
-    const game = {
-        drones: 0,
-        researchers: 0,
-        hasResearchStation: false,
-        droneCost: 15,
-        labUpgradeCost: 20,
-        labLevel: 1
-    };
+    const game = { drones: 0, researchers: 0, hasResearch: false, droneCost: 15 };
+    const PLANET_RADIUS = 100;
+    const craters = Array.from({length: 12}, () => ({ relX: Math.random()*6.28, relY: (Math.random()-0.5)*160, size: 6+Math.random()*12 }));
+    
+    let droneUnits = [], particles = [], starField = [];
+    let audioCtx = null, bgmStarted = false;
 
-    const PLANET_RADIUS = 130;
-    const craters = Array.from({length: 15}, () => ({
-        relX: Math.random() * Math.PI * 2, relY: (Math.random() - 0.5) * 200, size: 8 + Math.random() * 15
-    }));
+    // --- Audio Engine ---
+    async function startAudio() {
+        if (bgmStarted && audioCtx && audioCtx.state === 'suspended') {
+            await audioCtx.resume();
+            return;
+        }
+        if (bgmStarted) return;
 
-    let droneUnits = [], particles = [], bgStars = [];
+        try {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            await audioCtx.resume();
 
-    function resize() {
-        width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight;
-        bgStars = Array.from({length: 300}, () => ({ x: Math.random()*width, y: Math.random()*height, s: Math.random()*2 }));
+            const createPad = (freq, vol) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0, audioCtx.currentTime);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                gain.gain.setTargetAtTime(vol, audioCtx.currentTime, 2);
+            };
+
+            // BGM音量アップ版 (vol: 0.05 -> 0.12)
+            createPad(110, 0.12); // A2
+            createPad(164.81, 0.08); // E3
+
+            const playStar = () => {
+                const f = [523, 659, 783, 987][Math.floor(Math.random()*4)];
+                const o = audioCtx.createOscillator();
+                const g = audioCtx.createGain();
+                o.type = 'triangle'; o.frequency.value = f;
+                g.gain.value = 0; o.connect(g); g.connect(audioCtx.destination);
+                o.start();
+                g.gain.setTargetAtTime(0.03, audioCtx.currentTime, 0.5);
+                g.gain.setTargetAtTime(0, audioCtx.currentTime + 2, 1);
+                o.stop(audioCtx.currentTime + 5);
+                setTimeout(playStar, 3500 + Math.random()*3000);
+            };
+            playStar();
+
+            bgmStarted = true;
+            document.getElementById('audio-status').innerText = "BGM: ONLINE";
+        } catch (e) { console.error(e); }
     }
-    window.addEventListener('resize', resize);
-    resize();
 
-    // クリックイベント（拠点切り替え）
-    canvas.addEventListener('mousedown', (e) => {
-        const cx = width/2, cy = height/2;
-        const dx = e.clientX - cx, dy = e.clientY - cy;
+    // 効果音生成関数
+    function playSE(type) {
+        if (!audioCtx || audioCtx.state === 'suspended') return;
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.connect(g); g.connect(audioCtx.destination);
+        const now = audioCtx.currentTime;
 
-        // ステーション座標の計算（簡易当たり判定）
-        const s1 = getStationPos(0.4); // 本部
-        const s2 = getStationPos(0.7); // 研究
+        if (type === 'click') {
+            o.type = 'sine'; o.frequency.setValueAtTime(800, now);
+            o.frequency.exponentialRampToValueAtTime(100, now + 0.1);
+            g.gain.setValueAtTime(0.1, now);
+            g.gain.linearRampToValueAtTime(0, now + 0.1);
+            o.start(); o.stop(now + 0.1);
+        } else if (type === 'buy') {
+            o.type = 'square'; o.frequency.setValueAtTime(400, now);
+            o.frequency.exponentialRampToValueAtTime(800, now + 0.2);
+            g.gain.setValueAtTime(0.05, now);
+            g.gain.linearRampToValueAtTime(0, now + 0.3);
+            o.start(); o.stop(now + 0.3);
+        } else if (type === 'convert') {
+            o.type = 'sawtooth'; o.frequency.setValueAtTime(600, now);
+            o.frequency.linearRampToValueAtTime(200, now + 0.5);
+            g.gain.setValueAtTime(0.05, now);
+            g.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+            o.start(); o.stop(now + 0.5);
+        }
+    }
 
-        if (dist(e.clientX, e.clientY, s1.x, s1.y) < 40) switchUI('main');
-        else if (game.hasResearchStation && dist(e.clientX, e.clientY, s2.x, s2.y) < 40) switchUI('research');
-        else if (Math.sqrt(dx*dx + dy*dy) < PLANET_RADIUS) spawnManualParticle(e.clientX, e.clientY);
+    // --- Core Systems ---
+    function initStars() {
+        starField = [];
+        for(let i=0; i<1000; i++) {
+            const theta = Math.random()*6.28, phi = Math.acos(Math.random()*2-1), dist = 600+Math.random()*1000;
+            starField.push({ x: dist*Math.sin(phi)*Math.cos(theta), y: dist*Math.sin(phi)*Math.sin(theta), z: dist*Math.cos(phi), s: Math.random()*1.8+0.5, brightness: 0.6+Math.random()*0.4 });
+        }
+    }
+    function resize() { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; initStars(); }
+    window.addEventListener('resize', resize); resize();
+
+    document.getElementById('toggle-btn').onclick = (e) => {
+        e.stopPropagation();
+        const p1 = document.getElementById('main-panel');
+        const p2 = document.getElementById('research-panel');
+        if(p1.style.display==='block' || p2.style.display==='block') {
+            p1.style.display = p2.style.display = 'none';
+        } else { switchUI(game.hasResearch ? 'research' : 'main'); }
+    };
+    function switchUI(type) {
+        document.getElementById('main-panel').style.display = (type === 'main' ? 'block' : 'none');
+        document.getElementById('research-panel').style.display = (type === 'research' ? 'block' : 'none');
+    }
+
+    canvas.addEventListener('pointerdown', (e) => {
+        startAudio();
+        const s1 = getStationPos(0.4, 280), s2 = getStationPos(0.6, 220);
+        if (Math.sqrt((e.clientX-s1.x)**2 + (e.clientY-s1.y)**2) < 50) switchUI('main');
+        else if (game.hasResearch && Math.sqrt((e.clientX-s2.x)**2 + (e.clientY-s2.y)**2) < 50) switchUI('research');
+        else if (Math.sqrt((e.clientX-width/2)**2 + (e.clientY-height/2)**2) < PLANET_RADIUS+20) {
+            playSE('click');
+            particles.push({x: e.clientX, y: e.clientY, target: s1, life: 1, phase: 2, type: 'mining'});
+        }
     });
 
-    function getStationPos(tOffset) {
-        const ang = (time * tOffset) % (Math.PI * 2);
-        return { 
-            x: width/2 + Math.cos(ang) * 350, 
-            y: height/2 + Math.sin(ang) * 120,
-            isBehind: ang > Math.PI && ang < Math.PI * 2
-        };
+    function getStationPos(tOff, dOff) {
+        const ang = (time * tOff) % 6.28;
+        const d = Math.min(width * 0.4, dOff);
+        return { x: width/2 + Math.cos(ang)*d, y: height/2 + Math.sin(ang)*(d*0.3), ang, isBehind: ang > 3.14 };
     }
 
-    function dist(x1, y1, x2, y2) { return Math.sqrt((x1-x2)**2 + (y1-y2)**2); }
-
-    function switchUI(type) {
-        document.getElementById('main-panel').classList.toggle('ui-active', type === 'main');
-        document.getElementById('research-panel').classList.toggle('ui-active', type === 'research');
-    }
-
-    // 購入処理
     document.getElementById('buy-drone').onclick = () => {
-        if(stars >= game.droneCost) {
-            stars -= game.droneCost;
-            game.drones++;
-            game.droneCost = Math.floor(15 * Math.pow(1.2, game.drones + game.researchers));
-            addDroneUnit('mining');
+        if(stars_val >= game.droneCost) {
+            playSE('buy');
+            stars_val -= game.droneCost; game.drones++;
+            game.droneCost = Math.floor(15*Math.pow(1.2, game.drones + game.researchers));
+            droneUnits.push({ ang: Math.random()*6, orbitDist: 140+Math.random()*40, spd: 0.01+Math.random()*0.01, type: 'mining', last: 0 });
             updateUI();
         }
     };
-
     document.getElementById('buy-research-station').onclick = () => {
-        if(stars >= 500) {
-            stars -= 500;
-            game.hasResearchStation = true;
-            document.getElementById('buy-research-station').style.display = 'none';
-            updateUI();
+        if(stars_val >= 500) {
+            playSE('buy');
+            stars_val -= 500; game.hasResearch = true; 
+            document.getElementById('buy-research-station').style.display = 'none'; updateUI();
         }
     };
-
     document.getElementById('convert-drone').onclick = () => {
-        if(game.drones > 0) {
-            game.drones--;
-            game.researchers++;
-            // 最後の採掘ドローンを研究ドローンに書き換え
-            const d = droneUnits.find(u => u.type === 'mining');
-            if(d) d.type = 'research';
-            updateUI();
+        const miner = droneUnits.find(u => u.type === 'mining');
+        if(miner) {
+            playSE('convert');
+            game.drones--; game.researchers++; miner.type = 'research'; miner.orbitDist = 40+Math.random()*20; updateUI();
         }
     };
-
-    function addDroneUnit(type) {
-        droneUnits.push({
-            ang: Math.random()*Math.PI*2, 
-            dist: 180+Math.random()*40, 
-            spd: 0.01 + Math.random()*0.01,
-            type: type, last: 0
-        });
-    }
 
     function updateUI() {
-        document.getElementById('star-count').innerText = Math.floor(stars);
+        document.getElementById('star-count').innerText = Math.floor(stars_val);
         document.getElementById('res-count').innerText = Math.floor(resPoints);
         document.getElementById('star-rate').innerText = (game.drones * 0.5).toFixed(1);
-        document.getElementById('res-rate').innerText = (game.researchers * 0.2 * game.labLevel).toFixed(1);
+        document.getElementById('res-rate').innerText = (game.researchers * 0.2).toFixed(1);
         document.getElementById('d-cost').innerText = `COST: ${game.droneCost} ★`;
-        document.getElementById('buy-research-station').disabled = stars < 500;
+        document.getElementById('buy-research-station').disabled = stars_val < 500;
         document.getElementById('convert-drone').disabled = game.drones <= 0;
     }
 
     function draw() {
-        time += 0.01;
-        const cx = width/2, cy = height/2;
+        time += 0.01; const cx = width/2, cy = height/2;
         ctx.fillStyle = "#000"; ctx.fillRect(0, 0, width, height);
-
-        // 背景星空
-        ctx.fillStyle = "#444";
-        bgStars.forEach(s => { ctx.fillRect(s.x, s.y, s.s, s.s); });
-
-        const s1 = getStationPos(0.4);
-        const s2 = getStationPos(0.6);
-
-        // 描画順序: 奥ドローン -> 奥ステーション -> 惑星 -> 前ドローン -> 前ステーション
-        if(s1.isBehind) drawStation(s1.x, s1.y, 30, "#777");
-        if(game.hasResearchStation && s2.isBehind) drawStation(s2.x, s2.y, 22, "#f0f");
-        
-        droneUnits.forEach(d => {
-            d.ang = (d.ang + d.spd) % (Math.PI * 2);
-            d.isBehind = d.ang > Math.PI && d.ang < Math.PI * 2;
-            d.px = cx + Math.cos(d.ang) * d.dist;
-            d.py = cy + Math.sin(d.ang) * (d.dist * 0.4);
-            if(d.isBehind) drawDrone(d);
+        const rY = time*0.05, rX = time*0.02;
+        starField.forEach(s => {
+            let x1 = s.x*Math.cos(rY) - s.z*Math.sin(rY), z1 = s.x*Math.sin(rY) + s.z*Math.cos(rY);
+            let y2 = s.y*Math.cos(rX) - z1*Math.sin(rX), z2 = s.y*Math.sin(rX) + z1*Math.cos(rX);
+            const scale = 800 / (800 + z2);
+            ctx.fillStyle = `rgba(255, 255, 255, ${s.brightness * (z2<0?1:0.6)})`;
+            ctx.fillRect(cx + x1*scale, cy + y2*scale, s.s, s.s);
         });
-
+        const s1 = getStationPos(0.4, 280), s2 = getStationPos(0.6, 220);
+        if(s1.isBehind) drawMain(s1.x, s1.y, 25);
+        if(game.hasResearch && s2.isBehind) drawResearch(s2.x, s2.y, 20);
+        droneUnits.forEach(d => {
+            d.ang = (d.ang + d.spd) % 6.28;
+            const center = d.type === 'mining' ? {x:cx, y:cy} : s2;
+            const px = center.x + Math.cos(d.ang)*d.orbitDist, py = center.y + Math.sin(d.ang)*(d.orbitDist*(d.type==='mining'?0.35:0.6));
+            if(d.type==='mining'?d.ang>3.14:(s2.isBehind||d.ang>3.14)) drawDrone(px, py, d.type);
+            if(time - d.last > (d.type==='mining'?2:3)) {
+                if(d.type==='mining') particles.push({x:cx, y:cy, drone: d, dx:px, dy:py, target: s1, life:1, phase:1, type:'mining'});
+                else particles.push({x:s2.x, y:s2.y, drone: d, dx:px, dy:py, target: s1, life:1, phase:2, type:'research'});
+                d.last=time;
+            }
+        });
         drawPlanet(cx, cy);
-
         droneUnits.forEach(d => {
-            if(!d.isBehind) drawDrone(d);
-            const interval = d.type === 'mining' ? 2 : 3;
-            if(time - d.last > interval) { spawnParticle(d, d.type === 'mining' ? s1 : s2); d.last = time; }
+            const center = d.type === 'mining' ? {x:cx, y:cy} : s2;
+            const px = center.x + Math.cos(d.ang)*d.orbitDist, py = center.y + Math.sin(d.ang)*(d.orbitDist*(d.type==='mining'?0.35:0.6));
+            if(!(d.type==='mining'?d.ang>3.14:(s2.isBehind||d.ang>3.14))) drawDrone(px, py, d.type);
         });
-
-        if(!s1.isBehind) drawStation(s1.x, s1.y, 30, "#777");
-        if(game.hasResearchStation && !s2.isBehind) drawStation(s2.x, s2.y, 22, "#f0f");
-
-        // 粒子更新
+        if(!s1.isBehind) drawMain(s1.x, s1.y, 25);
+        if(game.hasResearch && !s2.isBehind) drawResearch(s2.x, s2.y, 20);
         particles = particles.filter(p => {
             p.life -= 0.04;
-            const curX = p.x + (p.target.x - p.x) * (1 - p.life);
-            const curY = p.y + (p.target.y - p.y) * (1 - p.life);
-            const dPlan = dist(curX, curY, cx, cy);
-            if(!(dPlan < PLANET_RADIUS && p.target.isBehind)) {
-                ctx.fillStyle = p.type === 'mining' ? "#aaa" : "#f0f";
-                ctx.fillRect(curX-2, curY-2, 4, 4);
-            }
+            const tx = (p.type==='mining'&&p.phase===1)?p.dx:p.target.x, ty = (p.type==='mining'&&p.phase===1)?p.dy:p.target.y;
+            const curX = p.x + (tx-p.x)*(1-p.life), curY = p.y + (ty-p.y)*(1-p.life);
+            if(p.life > 0) { ctx.fillStyle = p.type==='mining'?"#aaa":"#f0f"; ctx.fillRect(curX-2, curY-2, 4, 4); }
             if(p.life <= 0) {
-                if(p.type === 'mining') stars += 1; else resPoints += 1;
+                if(p.type==='mining'&&p.phase===1) { p.phase=2; p.life=1; p.x=tx; p.y=ty; return true; }
+                if(p.type==='mining') stars_val += 1; else resPoints += 1;
                 updateUI(); return false;
             }
             return true;
         });
-
         requestAnimationFrame(draw);
     }
 
     function drawPlanet(cx, cy) {
-        const pSize = 6, rot = time * 0.4;
+        const pSize = 6, rot = time*0.4;
         for (let y = -PLANET_RADIUS; y <= PLANET_RADIUS; y += pSize) {
             for (let x = -PLANET_RADIUS; x <= PLANET_RADIUS; x += pSize) {
                 if (x*x + y*y <= PLANET_RADIUS*PLANET_RADIUS) {
-                    const longitude = Math.asin(x / PLANET_RADIUS) + rot;
+                    const lon = Math.asin(x/PLANET_RADIUS)+rot;
                     let color = "#7a5cff";
-                    craters.forEach(c => {
-                        const dx = Math.sin(longitude)*PLANET_RADIUS - Math.sin(c.relX)*PLANET_RADIUS, dy = y - c.relY;
-                        if(Math.sqrt(dx*dx + dy*dy) < c.size) color = "#5a3ca2";
-                    });
-                    ctx.fillStyle = color;
-                    ctx.fillRect(cx + x, cy + y, pSize, pSize);
+                    craters.forEach(c => { if(Math.sqrt((Math.sin(lon)*PLANET_RADIUS - Math.sin(c.relX)*PLANET_RADIUS)**2 + (y-c.relY)**2) < c.size) color = "#5a3ca2"; });
+                    ctx.fillStyle = color; ctx.fillRect(cx+x, cy+y, pSize, pSize);
                 }
             }
         }
     }
 
-    function drawStation(x, y, size, color) {
-        ctx.fillStyle = color; ctx.fillRect(x-4, y-size, 8, size*2);
-        ctx.strokeStyle = color; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.ellipse(x, y, size*2, size*0.6, 0, 0, Math.PI*2); ctx.stroke();
-        ctx.fillStyle = "#fff"; ctx.fillRect(x-size/2, y-2, size, 4);
+    function drawMain(x, y, size) {
+        ctx.strokeStyle = "#888"; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.ellipse(x, y, size*2.5, size*0.8, 0.52, 0, 6.28); ctx.stroke();
+        ctx.fillStyle = "#aaa"; ctx.fillRect(x-4, y-size, 8, size*2);
+        ctx.fillStyle = "#fff"; ctx.fillRect(x-size, y-2, size*2, 4);
     }
 
-    function drawDrone(d) {
-        ctx.fillStyle = d.type === 'mining' ? "#0f0" : "#f0f";
-        ctx.fillRect(d.px-4, d.py-4, 8, 8);
+    function drawResearch(x, y, size) {
+        ctx.fillStyle = "#f0f"; ctx.beginPath(); ctx.arc(x, y, size, 0, 6.28); ctx.fill();
+        for(let i=0; i<3; i++) {
+            const a = time + i*2.1, sx = x+Math.cos(a)*size*1.5, sy = y+Math.sin(a)*size*1.5;
+            ctx.strokeStyle = "#f0f"; ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(sx,sy); ctx.stroke();
+            ctx.beginPath(); ctx.arc(sx, sy, size*0.3, 0, 6.28); ctx.fill();
+        }
     }
 
-    function spawnParticle(drone, target) {
-        particles.push({ x: drone.px, y: drone.py, target, life: 1, type: drone.type });
-    }
-
-    function spawnManualParticle(x, y) {
-        particles.push({ x, y, target: getStationPos(0.4), life: 1, type: 'mining' });
-    }
-
+    function drawDrone(x, y, type) { ctx.fillStyle = type==='mining'?"#0f0":"#f0f"; ctx.fillRect(x-3, y-3, 6, 6); }
     updateUI(); draw();
 </script>
 </body>
