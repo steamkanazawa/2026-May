@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <title>反射弾サバイバル</title>
 <style>
-body{margin:0;background:#d7ecff;color:#000;font-family:sans-serif;overflow:hidden;touch-action:none}
-canvas{display:block;margin:auto;background:#f4f9ff;touch-action:none}
+body{margin:0;background:#111;color:white;font-family:sans-serif;overflow:hidden;touch-action:none}
+canvas{display:block;margin:auto;background:#20242c;touch-action:none}
 #ui{position:fixed;left:10px;top:10px;font-size:15px}
 </style>
 </head>
@@ -30,6 +30,7 @@ let deviceMode="pc";
 let difficulty="normal";
 let moveTarget=null;
 let charging=false;
+let attackMode="normal";
 let chargeStart=0;
 
 const diffData={
@@ -67,7 +68,7 @@ const upgrades=[
 
 document.addEventListener("keydown",e=>{
   keys[e.key.toLowerCase()]=true;
-  if(e.code==="Space")shoot();
+  if(e.code==="Space"){attackMode=attackMode==="normal"?"charge":"normal";}
   if(gameState==="select"){
     if(e.key==="1")choose(0);
     if(e.key==="2")choose(1);
@@ -112,9 +113,8 @@ canvas.addEventListener("pointerdown",e=>{
     moveTarget={x:p.x,y:p.y};
   }
 
-  if(lv("charge")>0){
-    charging=true;
-    chargeStart=Date.now();
+  if(attackMode==="charge" && lv("charge")>0){
+    fireBeam();
   }else{
     shoot();
   }
@@ -234,7 +234,7 @@ function spawnEnemies(){
       r:18,
       hp:baseHp,maxHp:baseHp,
       speed:(1.1+wave*0.08)*d.enemySpeed,
-      color:"#6c8cff",
+      color:"#b35cff",
       kind:"normal",
       wait:d.spawnWait
     });
@@ -282,7 +282,7 @@ function makeRedEnemy(b){
     r:18,
     hp:normalHp+3,maxHp:normalHp+3,
     speed:(1.4+wave*0.08)*d.enemySpeed,
-    color:"#ff6b6b",
+    color:"#ff4444",
     kind:"red",
     wait:d.spawnWait
   });
@@ -399,7 +399,7 @@ function drawTitle(){
 }
 
 function drawButton(x,y,w,h,text,selected){
-  ctx.fillStyle=selected?"#4d9dff":"#9ec9ff";
+  ctx.fillStyle=selected?"#3d7cff":"#303846";
   ctx.fillRect(x,y,w,h);
   ctx.strokeStyle="white";
   ctx.strokeRect(x,y,w,h);
@@ -409,7 +409,7 @@ function drawButton(x,y,w,h,text,selected){
 }
 
 function drawPlayer(){
-  ctx.fillStyle="#00c96b";
+  ctx.fillStyle="#58d68d";
   ctx.beginPath();
   ctx.arc(player.x,player.y,player.r,0,Math.PI*2);
   ctx.fill();
@@ -423,7 +423,7 @@ function drawPlayer(){
 
   if(charging){
     const rate=Math.min(1,(Date.now()-chargeStart)/1500);
-    ctx.strokeStyle="#ffd84d";
+    ctx.strokeStyle="#ffff66";
     ctx.strokeRect(player.x-20,player.y-35,40,6);
     ctx.fillStyle="#ffff66";
     ctx.fillRect(player.x-20,player.y-35,40*rate,6);
@@ -441,15 +441,15 @@ function drawEnemies(){
     ctx.font="13px sans-serif";
     ctx.fillText(e.wait>0?"待機":Math.ceil(e.hp),e.x-13,e.y+5);
 
-    ctx.fillStyle="#d0d0d0";
+    ctx.fillStyle="#111";
     ctx.fillRect(e.x-18,e.y-28,36,5);
-    ctx.fillStyle="#00e676";
+    ctx.fillStyle="#00ff88";
     ctx.fillRect(e.x-18,e.y-28,36*Math.max(0,e.hp/e.maxHp),5);
   }
 }
 
 function drawBullets(){
-  ctx.fillStyle="#0099ff";
+  ctx.fillStyle="#44aaff";
   for(const b of bullets){
     ctx.beginPath();
     ctx.arc(b.x,b.y,b.r,0,Math.PI*2);
@@ -459,7 +459,7 @@ function drawBullets(){
 
 function drawBeams(){
   for(const bm of beams){
-    ctx.strokeStyle="#ffd84d";
+    ctx.strokeStyle="#ffff66";
     ctx.lineWidth=bm.width;
     ctx.beginPath();
     ctx.moveTo(bm.x,bm.y);
@@ -485,7 +485,7 @@ function drawUI(){
   ctx.fillRect(20,470,200,12);
   ctx.strokeStyle="white";
   ctx.strokeRect(20,470,200,12);
-  ctx.fillStyle="#00c96b";
+  ctx.fillStyle="#58d68d";
   ctx.fillRect(20,470,200*(player.hp/player.maxHp),12);
 }
 
