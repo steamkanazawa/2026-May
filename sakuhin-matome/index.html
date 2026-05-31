@@ -18,16 +18,10 @@ body{
 h1{
     font-size:2.5em;
     color:#64ffda;
-    margin-bottom:10px;
-}
-
-p{
-    color:#ccd6f6;
-    margin-bottom:30px;
 }
 
 .container{
-    max-width:800px;
+    max-width:900px;
     margin:auto;
     display:grid;
     grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
@@ -39,133 +33,84 @@ p{
     border:2px solid #64ffda;
     border-radius:18px;
     padding:20px;
-    transition:0.3s;
+    transition:.3s;
 }
 
 .card:hover{
     transform:translateY(-6px);
-    box-shadow:0 0 20px rgba(100,255,218,0.4);
+    box-shadow:0 0 20px rgba(100,255,218,.4);
 }
 
 a{
     color:white;
     text-decoration:none;
-    display:block;
 }
 
 .name{
     font-size:1.4em;
-    font-weight:bold;
-    margin-bottom:10px;
     color:#64ffda;
+    font-weight:bold;
 }
 
-.url{
-    font-size:0.85em;
-    word-break:break-all;
+.work{
+    margin-top:10px;
     color:#ccd6f6;
+    font-size:.95em;
 }
 </style>
 </head>
 <body>
 
 <h1>🎮 生徒作品まとめサイト</h1>
-<p>名前をタップして作品を見よう！</p>
+<p>名前をクリックして作品を見よう！</p>
 
-<div class="container">
+<div class="container" id="container"></div>
 
-<div class="card">
-<a href="https://steamkanazawa.github.io/2026-May/Ao-Game/" target="_blank">
-<div class="name">あお</div>
-<div class="url">Ao-Game</div>
-</a>
-</div>
+<script>
+const works = [
+["あお","https://steamkanazawa.github.io/2026-May/Ao-Game/"],
+["ありさ","https://steamkanazawa.github.io/2026-May/pikuminge-mu/"],
+["いつき","https://steamkanazawa.github.io/2026-May/DONNOTMISSSHOT/"],
+["おむら","https://steamkanazawa.github.io/2026-May/omura0531/"],
+["こうた","https://steamkanazawa.github.io/2026-May/kota0531/"],
+["きょうじ","https://steamkanazawa.github.io/2026-May/kyoji0531/"],
+["しょうた","https://steamkanazawa.github.io/2026-May/syota-game/"],
+["しゅんた","https://steamkanazawa.github.io/2026-May/tanabe0531/"],
+["たける","https://steamkanazawa.github.io/2026-May/takeru-Chess/"],
+["たくま","https://steamkanazawa.github.io/2026-May/ohashi-game/"],
+["のと","https://steamkanazawa.github.io/2026-May/notoai/"],
+["ひろゆき","https://steamkanazawa.github.io/2026-May/teramoto0531/"],
+["ゆき","https://steamkanazawa.github.io/2026-May/shimada-game/"],
+["りゅうせい","https://steamkanazawa.github.io/2026-May/rsyougi/"]
+];
 
-<div class="card">
-<a href="https://steamkanazawa.github.io/2026-May/pikuminge-mu/" target="_blank">
-<div class="name">ありさ</div>
-<div class="url">pikuminge-mu</div>
-</a>
-</div>
+const container = document.getElementById("container");
 
-<div class="card">
-<a href="https://steamkanazawa.github.io/2026-May/DONNOTMISSSHOT/" target="_blank">
-<div class="name">いつき</div>
-<div class="url">DONNOTMISSSHOT</div>
-</a>
-</div>
+works.forEach(([name,url])=>{
+    const card=document.createElement("div");
+    card.className="card";
 
-<div class="card">
-<a href="https://steamkanazawa.github.io/2026-May/kota0531/" target="_blank">
-<div class="name">こうた</div>
-<div class="url">kota0531</div>
-</a>
-</div>
+    card.innerHTML=`
+        <a href="${url}" target="_blank">
+            <div class="name">${name}</div>
+            <div class="work" id="${name}">作品名を取得中...</div>
+        </a>
+    `;
 
-<div class="card">
-<a href="https://steamkanazawa.github.io/2026-May/kyoji0531/" target="_blank">
-<div class="name">きょうじ</div>
-<div class="url">kyoji0531</div>
-</a>
-</div>
+    container.appendChild(card);
 
-<div class="card">
-<a href="https://steamkanazawa.github.io/2026-May/syota-game/" target="_blank">
-<div class="name">しょうた</div>
-<div class="url">syota-game</div>
-</a>
-</div>
-
-<div class="card">
-<a href="https://steamkanazawa.github.io/2026-May/shimada-game/" target="_blank">
-<div class="name">ゆき</div>
-<div class="url">shimada-game</div>
-</a>
-</div>
-
-<div class="card">
-<a href="https://steamkanazawa.github.io/2026-May/takeru-Chess/" target="_blank">
-<div class="name">たける</div>
-<div class="url">takeru-Chess</div>
-</a>
-</div>
-
-<div class="card">
-<a href="https://steamkanazawa.github.io/2026-May/ohashi-game/" target="_blank">
-<div class="name">たくま</div>
-<div class="url">ohashi-game</div>
-</a>
-</div>
-
-<div class="card">
-<a href="https://steamkanazawa.github.io/2026-May/tanabe0531/" target="_blank">
-<div class="name">しゅんた</div>
-<div class="url">tanabe0531</div>
-</a>
-</div>
-
-<div class="card">
-<a href="https://steamkanazawa.github.io/2026-May/teramoto0531/" target="_blank">
-<div class="name">ひろゆき</div>
-<div class="url">teramoto0531</div>
-</a>
-</div>
-
-<div class="card">
-<a href="https://steamkanazawa.github.io/2026-May/notoai/" target="_blank">
-<div class="name">のと</div>
-<div class="url">notoai</div>
-</a>
-</div>
-
-<div class="card">
-<a href="https://steamkanazawa.github.io/2026-May/rsyougi/" target="_blank">
-<div class="name">りゅうせい</div>
-<div class="url">rsyougi</div>
-</a>
-</div>
-
-</div>
+    fetch(url)
+        .then(r=>r.text())
+        .then(html=>{
+            const titleMatch = html.match(/<title>(.*?)<\/title>/i);
+            document.getElementById(name).textContent =
+                titleMatch ? titleMatch[1] : "作品を見る";
+        })
+        .catch(()=>{
+            document.getElementById(name).textContent = "作品を見る";
+        });
+});
+</script>
 
 </body>
 </html>
