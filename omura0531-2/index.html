@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SPEED EQUATION - PROTOCOL B</title>
+<title>SPEED EQUATION - PROTOCOL B (BUG FIXED)</title>
 <style>
 /* 👾 サイバー・タイムアタック UI */
 body {
@@ -343,7 +343,7 @@ function showTitleScreen(isGameOver = false) {
                 最終コアスコア: <span style="color:#39ff14; font-size:20px; font-weight:bold;">${score}</span> | 最高ログ: ${highScore}
             </div>
             <div style="color: #ffb300; font-size: 12px; font-weight: bold;">
-                ── 【1〜9】のいずれキーを押して制限時間を再設定せよ ──
+                ── 【1〜9】のいずれかのキーを押して制限時間を再設定せよ ──
             </div>
         `;
         monitor.textContent = "CRASHED...";
@@ -480,6 +480,7 @@ function modifyScore(amount) {
     scoreVal.textContent = score;
 }
 
+// ボタンの挙動リセット用
 function setupOperatorClickEvents() {
     document.getElementById("op-add").onclick = () => selectOperator('＋');
     document.getElementById("op-sub").onclick = () => selectOperator('－');
@@ -559,6 +560,8 @@ function updateUI() {
     let rightStr = formatSide(eq.c, 1, eq.d);
     monitor.textContent = `${leftStr} = ${rightStr}`;
 
+    // 🌟 【バグ修正箇所】
+    // 左辺が「完全に1X」かつ「分母も1」かつ「定数項が0」かつ「右辺にXがなく定数のみ」の時だけクリアにする
     if (eq.a === 1 && eq.divVal === 1 && eq.b === 0 && eq.c === 0 && Math.abs(eq.d - targetX) < 0.01) {
         handleWin();
     }
