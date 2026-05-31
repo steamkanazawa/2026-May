@@ -26,7 +26,7 @@ button{
 <body>
 
 <h1>空中バトル弾幕ゲーム</h1>
-<p>WASD/矢印キーで移動　Jで攻撃　Kでジャストガード</p>
+<p>WASD/矢印キーで移動　Jで攻撃　Kでガード/回避</p>
 
 <canvas id="game" width="800" height="450"></canvas>
 <br>
@@ -53,6 +53,10 @@ let attackCooldown = 0;
 let guardTimer = 0;
 let guardCooldown = 0;
 const justGuardTime = 12;
+
+let dodgeTimer = 0;
+let dodgeCooldown = 0;
+const dodgeTime = 12;
 
 document.addEventListener("keydown", e=>{
   keys[e.key.toLowerCase()] = true;
@@ -90,6 +94,8 @@ function startGame(){
   attackCooldown = 0;
   guardTimer = 0;
   guardCooldown = 0;
+  dodgeTimer = 0;
+  dodgeCooldown = 0;
 
   playing = true;
   gameOver = false;
@@ -101,15 +107,22 @@ function startGame(){
 function update(){
   if(!playing) return;
 
-  if(keys["a"] || keys["arrowleft"]) player.x -= player.speed;
-  if(keys["d"] || keys["arrowright"]) player.x += player.speed;
-  if(keys["w"] || keys["arrowup"]) player.y -= player.speed;
-  if(keys["s"] || keys["arrowdown"]) player.y += player.speed;
+  let moveX = 0;
+  let moveY = 0;
 
-  if(player.x < 0) player.x = 0;
-  if(player.x + player.w > canvas.width) player.x = canvas.width - player.w;
-  if(player.y < 0) player.y = 0;
-  if(player.y + player.h > canvas.height) player.y = canvas.height - player.h;
+  if(keys["a"] || keys["arrowleft"]) moveX -= 1;
+  if(keys["d"] || keys["arrowright"]) moveX += 1;
+  if(keys["w"] || keys["arrowup"]) moveY -= 1;
+  if(keys["s"] || keys["arrowdown"]) moveY += 1;
+
+  if(moveX !== 0 || moveY !== 0){
+    const len = Math.sqrt(moveX * moveX + moveY * moveY);
+    moveX /= len;
+    moveY /= len;
+
+    player.x += moveX * player.speed;
+    player.y += moveY * player.speed;
+  }
 
   if(keys["j"] && attackCooldown <= 0){
     shootPlayer();
@@ -118,13 +131,29 @@ function update(){
 
   if(attackCooldown > 0) attackCooldown--;
 
-  if(keys["k"] && guardCooldown <= 0){
-    guardTimer = justGuardTime;
-    guardCooldown = 45;
+  if(keys["k"] && guardCooldown <= 0 && dodgeCooldown <= 0){
+    if(moveX !== 0 || moveY !== 0){
+      dodgeTimer = dodgeTime;
+      dodgeCooldown = 45;
+
+      player.x += moveX * 45;
+      player.y += moveY * 45;
+    }else{
+      guardTimer = justGuardTime;
+      guardCooldown = 45;
+    }
   }
 
   if(guardTimer > 0) guardTimer--;
   if(guardCooldown > 0) guardCooldown--;
+
+  if(dodgeTimer > 0) dodgeTimer--;
+  if(dodgeCooldown > 0) dodgeCooldown--;
+
+  if(player.x < 0) player.x = 0;
+  if(player.x + player.w > canvas.width) player.x = canvas.width - player.w;
+  if(player.y < 0) player.y = 0;
+  if(player.y + player.h > canvas.height) player.y = canvas.height - player.h;
 
   enemy.t++;
   enemy.y = 180 + Math.sin(enemy.t * 0.04) * 80;
@@ -159,10 +188,25 @@ function update(){
 
   for(let i=enemyBullets.length-1; i>=0; i--){
     const b = enemyBullets[i];
+
+    if(b.snake){
+      b.life++;
+      const nx = -b.vy;
+      const ny = b.vx;
+const wave = Math.sin(b.life * 0.45) * 7.0;
+b.x += nx * 0.28 * wave;
+b.y += ny * 0.28 * wave;
+    }
+
     b.x += b.vx;
     b.y += b.vy;
 
     if(rectCircleHit(player, b)){
+
+      if(dodgeTimer > 0){
+        continue;
+      }
+
       if(guardTimer > 0){
         enemyBullets.splice(i,1);
         enemy.hp -= 5;
@@ -187,10 +231,10 @@ function update(){
     }
 
     if(
-      b.x < -100 ||
-      b.x > canvas.width + 100 ||
-      b.y < -100 ||
-      b.y > canvas.height + 100
+      b.x < -120 ||
+      b.x > canvas.width + 120 ||
+      b.y < -120 ||
+      b.y > canvas.height + 120
     ){
       enemyBullets.splice(i,1);
     }
@@ -208,7 +252,7 @@ function shootPlayer(){
 }
 
 function enemyAttack(){
-  const pattern = Math.floor(Math.random() * 7);
+  const pattern = Math.floor(Math.random() * 8);
 
   if(pattern === 0){
     for(let i=-3; i<=3; i++){
@@ -301,6 +345,25 @@ function enemyAttack(){
       vy:Math.sin(angle) * 3.2
     });
   }
+
+  // 蛇みたいにうねうね動く弾
+  if(pattern === 7){
+    const dx = player.x - enemy.x;
+    const dy = player.y - enemy.y;
+    const angle = Math.atan2(dy, dx);
+
+    for(let i=-1; i<=1; i++){
+      enemyBullets.push({
+        x:enemy.x,
+        y:enemy.y + enemy.h / 10,
+        r:14,
+vx:Math.cos(angle + i * 0.18) * 2.2,
+vy:Math.sin(angle + i * 0.18) * 2.2,
+        snake:true,
+        life:0
+      });
+    }
+  }
 }
 
 function rectCircleHit(rect, c){
@@ -332,7 +395,7 @@ function draw(){
     ctx.fill();
   }
 
-  ctx.fillStyle = "lime";
+  ctx.fillStyle = dodgeTimer > 0 ? "pink" : "lime";
   ctx.fillRect(player.x, player.y, player.w, player.h);
 
   if(guardTimer > 0){
@@ -349,10 +412,10 @@ function draw(){
     ctx.stroke();
   }
 
-  if(guardCooldown > 0){
+  if(guardCooldown > 0 || dodgeCooldown > 0){
     ctx.fillStyle = "white";
     ctx.font = "14px sans-serif";
-    ctx.fillText("GUARD WAIT", player.x - 20, player.y - 10);
+    ctx.fillText("GUARD/DODGE WAIT", player.x - 35, player.y - 10);
   }
 
   ctx.fillStyle = "red";
@@ -365,8 +428,8 @@ function draw(){
     ctx.fill();
   }
 
-  ctx.fillStyle = "cyan";
   for(const b of enemyBullets){
+    ctx.fillStyle = b.snake ? "magenta" : "cyan";
     ctx.beginPath();
     ctx.arc(b.x,b.y,b.r,0,Math.PI*2);
     ctx.fill();
@@ -380,12 +443,13 @@ function draw(){
   ctx.fillText("PLAYER",20,60);
   ctx.fillText("ENEMY",560,60);
   ctx.fillText("J:攻撃",20,90);
-  ctx.fillText("K:ジャストガード",20,115);
+  ctx.fillText("K:ガード",20,115);
+  ctx.fillText("移動 + K:回避ダッシュ",20,140);
+  ctx.fillText("紫弾: 蛇弾",20,165);
 
   if(gameOver){
     ctx.fillStyle = "rgba(0,0,0,.75)";
     ctx.fillRect(0,0,canvas.width,canvas.height);
-
     ctx.fillStyle = "white";
     ctx.font = "44px sans-serif";
     ctx.fillText("GAME OVER",270,220);
@@ -394,7 +458,6 @@ function draw(){
   if(clear){
     ctx.fillStyle = "rgba(0,0,0,.75)";
     ctx.fillRect(0,0,canvas.width,canvas.height);
-
     ctx.fillStyle = "yellow";
     ctx.font = "44px sans-serif";
     ctx.fillText("CLEAR!",330,220);
