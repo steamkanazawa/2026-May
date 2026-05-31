@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Cosmic Station - Research & Expansion</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        body { background: #000; color: #fff; font-family: 'Press Start 2P', cursive; margin: 0; overflow: hidden; }
+        canvas { image-rendering: pixelated; width: 100vw; height: 100vh; display: block; }
+        
+        /* 拠点別UIパネル */
+        .ui-panel { 
+            position: absolute; right: 20px; top: 80px; width: 340px; 
+            background: rgba(10, 10, 30, 0.95); border: 4px solid #555; padding: 20px; 
+            box-shadow: 0 0 30px #000; z-index: 100; display: none;
+        }
+        .ui-active { display: block; }
+        #main-panel { border-color: #777; }
+        #research-panel { border-color: #f0f; }
+
+        /* 左上のステータス */
+        #stats {
+            position: absolute; left: 20px; top: 20px; pointer-events: none;
+            background: rgba(0,0,0,0.6); padding: 10px; border: 2px solid #333;
+        }
+        .stat-line { font-size: 10px; margin-bottom: 8px; display: flex; align-items: center; }
+        .icon-star { color: #aaa; margin-right: 10px; }
+        .icon-res { color: #f0f; margin-right: 10px; }
+
+        .item-btn { 
+            width: 100%; background: #222; color: #fff; border: 4px solid #444; 
+            padding: 12px; margin-top: 10px; font-family: 'Press Start 2P', cursive; font-size: 8px; cursor: pointer;
+        }
+        .item-btn:hover:not(:disabled) { background: #333; }
+        #research-panel .item-btn:hover:not(:disabled) { border-color: #f0f; }
+        .item-btn:disabled { color: #444; border-color: #222; cursor: not-allowed; }
+        
+        .tab-hint { position: absolute; bottom: 20px; left: 20px; font-size: 8px; color: #666; }
+    </style>
+</head>
+<body>
+
+<div id="stats">
+    <div class="stat-line"><span class="icon-star">★</span><span id="star-count">0</span> (+<span id="star-rate">0.0</span>/s)</div>
+    <div class="stat-line"><span class="icon-res">●</span><span id="res-count">0</span> (+<span id="res-rate">0.0</span>/s)</div>
+</div>
+
+<div id="main-panel" class="ui-panel ui-active">
+    <div style="font-size:12px; color:#aaa; margin-bottom:15px;">MAIN COMMAND</div>
+    <button class="item-btn" id="buy-drone">ADD MINING DRONE<span id="d-cost" style="display:block; font-size:6px; color:#666; margin-top:5px;">COST: 15 ★</span></button>
+    <button class="item-btn" id="buy-research-station" disabled>BUILD RESEARCH ST.<span style="display:block; font-size:6px; color:#666; margin-top:5px;">COST: 500 ★</span></button>
+</div>
+
+<div id="research-panel" class="ui-panel">
+    <div style="font-size:12px; color:#f0f; margin-bottom:15px;">RESEARCH LAB</div>
+    <button class="item-btn" id="convert-drone">CONVERT DRONE → LAB<span style="display:block; font-size:6px; color:#666; margin-top:5px;">CONSUME 1 DRONE</span></button>
+    <button class="item-btn" id="upgrade-lab" disabled>ENHANCE RESEARCH<span id="l-cost" style="display:block; font-size:6px; color:#666; margin-top:5px;">COST: 20 ●</span></button>
+</div>
+
+<div class="tab-hint">CLICK STATIONS TO SWITCH MENUS</div>
+<canvas id="gameCanvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    let width, height, stars = 0, resPoints = 0, time = 0;
+    
+    // ゲームデータ
+    const game = {
+        drones: 0,
+        researchers: 0,
+        hasResearchStation: false,
+        droneCost: 15,
+        labUpgradeCost: 20,
+        labLevel: 1
+    };
+
+    const PLANET_RADIUS = 130;
+    const craters = Array.from({length: 15}, () => ({
+        relX: Math.random() * Math.PI * 2, relY: (Math.random() - 0.5) * 200, size: 8 + Math.random() * 15
+    }));
+
+    let droneUnits = [], particles = [], bgStars = [];
+
+    function resize() {
+        width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight;
+        bgStars = Array.from({length: 300}, () => ({ x: Math.random()*width, y: Math.random()*height, s: Math.random()*2 }));
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // クリックイベント（拠点切り替え）
+    canvas.addEventListener('mousedown', (e) => {
+        const cx = width/2, cy = height/2;
+        const dx = e.clientX - cx, dy = e.clientY - cy;
+
+        // ステーション座標の計算（簡易当たり判定）
+        const s1 = getStationPos(0.4); // 本部
+        const s2 = getStationPos(0.7); // 研究
+
+        if (dist(e.clientX, e.clientY, s1.x, s1.y) < 40) switchUI('main');
+        else if (game.hasResearchStation && dist(e.clientX, e.clientY, s2.x, s2.y) < 40) switchUI('research');
+        else if (Math.sqrt(dx*dx + dy*dy) < PLANET_RADIUS) spawnManualParticle(e.clientX, e.clientY);
+    });
+
+    function getStationPos(tOffset) {
+        const ang = (time * tOffset) % (Math.PI * 2);
+        return { 
+            x: width/2 + Math.cos(ang) * 350, 
+            y: height/2 + Math.sin(ang) * 120,
+            isBehind: ang > Math.PI && ang < Math.PI * 2
+        };
+    }
+
+    function dist(x1, y1, x2, y2) { return Math.sqrt((x1-x2)**2 + (y1-y2)**2); }
+
+    function switchUI(type) {
+        document.getElementById('main-panel').classList.toggle('ui-active', type === 'main');
+        document.getElementById('research-panel').classList.toggle('ui-active', type === 'research');
+    }
+
+    // 購入処理
+    document.getElementById('buy-drone').onclick = () => {
+        if(stars >= game.droneCost) {
+            stars -= game.droneCost;
+            game.drones++;
+            game.droneCost = Math.floor(15 * Math.pow(1.2, game.drones + game.researchers));
+            addDroneUnit('mining');
+            updateUI();
+        }
+    };
+
+    document.getElementById('buy-research-station').onclick = () => {
+        if(stars >= 500) {
+            stars -= 500;
+            game.hasResearchStation = true;
+            document.getElementById('buy-research-station').style.display = 'none';
+            updateUI();
+        }
+    };
+
+    document.getElementById('convert-drone').onclick = () => {
+        if(game.drones > 0) {
+            game.drones--;
+            game.researchers++;
+            // 最後の採掘ドローンを研究ドローンに書き換え
+            const d = droneUnits.find(u => u.type === 'mining');
+            if(d) d.type = 'research';
+            updateUI();
+        }
+    };
+
+    function addDroneUnit(type) {
+        droneUnits.push({
+            ang: Math.random()*Math.PI*2, 
+            dist: 180+Math.random()*40, 
+            spd: 0.01 + Math.random()*0.01,
+            type: type, last: 0
+        });
+    }
+
+    function updateUI() {
+        document.getElementById('star-count').innerText = Math.floor(stars);
+        document.getElementById('res-count').innerText = Math.floor(resPoints);
+        document.getElementById('star-rate').innerText = (game.drones * 0.5).toFixed(1);
+        document.getElementById('res-rate').innerText = (game.researchers * 0.2 * game.labLevel).toFixed(1);
+        document.getElementById('d-cost').innerText = `COST: ${game.droneCost} ★`;
+        document.getElementById('buy-research-station').disabled = stars < 500;
+        document.getElementById('convert-drone').disabled = game.drones <= 0;
+    }
+
+    function draw() {
+        time += 0.01;
+        const cx = width/2, cy = height/2;
+        ctx.fillStyle = "#000"; ctx.fillRect(0, 0, width, height);
+
+        // 背景星空
+        ctx.fillStyle = "#444";
+        bgStars.forEach(s => { ctx.fillRect(s.x, s.y, s.s, s.s); });
+
+        const s1 = getStationPos(0.4);
+        const s2 = getStationPos(0.6);
+
+        // 描画順序: 奥ドローン -> 奥ステーション -> 惑星 -> 前ドローン -> 前ステーション
+        if(s1.isBehind) drawStation(s1.x, s1.y, 30, "#777");
+        if(game.hasResearchStation && s2.isBehind) drawStation(s2.x, s2.y, 22, "#f0f");
+        
+        droneUnits.forEach(d => {
+            d.ang = (d.ang + d.spd) % (Math.PI * 2);
+            d.isBehind = d.ang > Math.PI && d.ang < Math.PI * 2;
+            d.px = cx + Math.cos(d.ang) * d.dist;
+            d.py = cy + Math.sin(d.ang) * (d.dist * 0.4);
+            if(d.isBehind) drawDrone(d);
+        });
+
+        drawPlanet(cx, cy);
+
+        droneUnits.forEach(d => {
+            if(!d.isBehind) drawDrone(d);
+            const interval = d.type === 'mining' ? 2 : 3;
+            if(time - d.last > interval) { spawnParticle(d, d.type === 'mining' ? s1 : s2); d.last = time; }
+        });
+
+        if(!s1.isBehind) drawStation(s1.x, s1.y, 30, "#777");
+        if(game.hasResearchStation && !s2.isBehind) drawStation(s2.x, s2.y, 22, "#f0f");
+
+        // 粒子更新
+        particles = particles.filter(p => {
+            p.life -= 0.04;
+            const curX = p.x + (p.target.x - p.x) * (1 - p.life);
+            const curY = p.y + (p.target.y - p.y) * (1 - p.life);
+            const dPlan = dist(curX, curY, cx, cy);
+            if(!(dPlan < PLANET_RADIUS && p.target.isBehind)) {
+                ctx.fillStyle = p.type === 'mining' ? "#aaa" : "#f0f";
+                ctx.fillRect(curX-2, curY-2, 4, 4);
+            }
+            if(p.life <= 0) {
+                if(p.type === 'mining') stars += 1; else resPoints += 1;
+                updateUI(); return false;
+            }
+            return true;
+        });
+
+        requestAnimationFrame(draw);
+    }
+
+    function drawPlanet(cx, cy) {
+        const pSize = 6, rot = time * 0.4;
+        for (let y = -PLANET_RADIUS; y <= PLANET_RADIUS; y += pSize) {
+            for (let x = -PLANET_RADIUS; x <= PLANET_RADIUS; x += pSize) {
+                if (x*x + y*y <= PLANET_RADIUS*PLANET_RADIUS) {
+                    const longitude = Math.asin(x / PLANET_RADIUS) + rot;
+                    let color = "#7a5cff";
+                    craters.forEach(c => {
+                        const dx = Math.sin(longitude)*PLANET_RADIUS - Math.sin(c.relX)*PLANET_RADIUS, dy = y - c.relY;
+                        if(Math.sqrt(dx*dx + dy*dy) < c.size) color = "#5a3ca2";
+                    });
+                    ctx.fillStyle = color;
+                    ctx.fillRect(cx + x, cy + y, pSize, pSize);
+                }
+            }
+        }
+    }
+
+    function drawStation(x, y, size, color) {
+        ctx.fillStyle = color; ctx.fillRect(x-4, y-size, 8, size*2);
+        ctx.strokeStyle = color; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.ellipse(x, y, size*2, size*0.6, 0, 0, Math.PI*2); ctx.stroke();
+        ctx.fillStyle = "#fff"; ctx.fillRect(x-size/2, y-2, size, 4);
+    }
+
+    function drawDrone(d) {
+        ctx.fillStyle = d.type === 'mining' ? "#0f0" : "#f0f";
+        ctx.fillRect(d.px-4, d.py-4, 8, 8);
+    }
+
+    function spawnParticle(drone, target) {
+        particles.push({ x: drone.px, y: drone.py, target, life: 1, type: drone.type });
+    }
+
+    function spawnManualParticle(x, y) {
+        particles.push({ x, y, target: getStationPos(0.4), life: 1, type: 'mining' });
+    }
+
+    updateUI(); draw();
+</script>
+</body>
+</html>
