@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SPEED EQUATION - PROTOCOL B</title>
+<style>
+/* 👾 サイバー・タイムアタック UI */
+body {
+    margin: 0;
+    background-color: #03050a;
+    color: #39ff14;
+    font-family: 'Courier New', Courier, monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+h1 {
+    font-size: 24px;
+    text-shadow: 0 0 8px #39ff14;
+    margin-bottom: 5px;
+    letter-spacing: 2px;
+}
+
+#status-bar {
+    width: 100%;
+    max-width: 550px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: #00ffff;
+}
+#high-score-val { color: #ffb300; }
+
+#game-container {
+    width: 100%;
+    max-width: 550px;
+    background: #090d1a;
+    border: 4px solid #39ff14;
+    border-radius: 4px;
+    padding: 20px;
+    box-shadow: 0 0 25px rgba(57, 255, 20, 0.15);
+    box-sizing: border-box;
+    position: relative;
+}
+
+#timer-container {
+    width: 100%;
+    height: 8px;
+    background: #222;
+    margin-bottom: 15px;
+    border-radius: 4px;
+    overflow: hidden;
+}
+#timer-bar {
+    width: 100%;
+    height: 100%;
+    background: #39ff14;
+}
+
+#monitor {
+    background: #000;
+    border: 2px solid #222;
+    padding: 20px;
+    text-align: center;
+    font-size: 32px;
+    font-weight: bold;
+    color: #fff;
+    margin-bottom: 20px;
+    box-shadow: inset 0 0 15px rgba(0,255,0,0.2);
+    letter-spacing: 1px;
+}
+
+.panel-title {
+    font-size: 11px;
+    color: #666;
+    margin-bottom: 6px;
+    letter-spacing: 1px;
+    font-weight: bold;
+}
+
+#operator-panel {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.op-btn {
+    background: #101524;
+    border: 2px solid #39ff14;
+    color: #39ff14;
+    font-size: 26px;
+    font-weight: bold;
+    font-family: inherit;
+    padding: 12px 0;
+    cursor: pointer;
+    box-shadow: 0 4px 0 #1b660a;
+    transition: all 0.05s ease;
+}
+.op-btn:hover { background: #162414; }
+.op-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #1b660a; }
+
+.op-btn.selected {
+    background: #39ff14;
+    color: #000;
+    box-shadow: 0 0 15px #39ff14;
+    border-color: #fff;
+}
+
+.grid-container {
+    background: #050811;
+    border: 1px solid #222;
+    padding: 12px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+}
+
+.target-grid {
+    display: grid;
+    grid-template-columns: repeat(9, 1fr);
+    gap: 6px;
+}
+
+.target-btn {
+    background: #111;
+    border: 1px solid #39ff14;
+    color: #fff;
+    padding: 10px 0;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    text-align: center;
+}
+.target-btn:hover { background: #222; color: #39ff14; }
+
+/* タイトル画面での数字ボタンの強調演出 */
+.target-btn.select-active {
+    animation: pulse 1.2s infinite;
+    border-color: #ffb300;
+    color: #ffb300;
+    font-size: 18px;
+    padding: 14px 0;
+}
+@keyframes pulse {
+    0% { box-shadow: 0 0 0px rgba(255,179,0,0); background: #111; }
+    50% { box-shadow: 0 0 12px rgba(255,179,0,0.8); background: #2a1f05; }
+    100% { box-shadow: 0 0px 0px rgba(255,179,0,0); background: #111; }
+}
+
+.target-btn.x-type {
+    border-color: #00ffff;
+    color: #00ffff;
+}
+
+#message {
+    height: 35px;
+    font-size: 13px;
+    text-align: center;
+    color: #00ffff;
+    line-height: 1.4;
+    margin-top: 10px;
+}
+
+/* 💀 オープニング ＆ ゲームオーバー表示用テキストエリア */
+#title-text-area {
+    text-align: center;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #050811;
+    border: 1px dashed #39ff14;
+}
+.main-title-text {
+    font-size: 26px;
+    color: #39ff14;
+    font-weight: bold;
+    text-shadow: 0 0 10px #39ff14;
+    margin-bottom: 12px;
+    letter-spacing: 1px;
+}
+.rule-list {
+    text-align: left;
+    display: inline-block;
+    color: #fff;
+    font-size: 12px;
+    line-height: 1.7;
+    margin: 5px 0 15px 0;
+    padding-left: 0;
+    list-style: none;
+}
+.rule-list li {
+    margin-bottom: 5px;
+}
+.rule-tag {
+    color: #00ffff;
+    font-weight: bold;
+    margin-right: 6px;
+}
+</style>
+</head>
+<body>
+
+<h1>SPEED EQUATION</h1>
+
+<div id="status-bar">
+    <div>SCORE: <span id="score-val">100</span></div>
+    <div>HI-SCORE: <span id="high-score-val">0</span></div>
+</div>
+
+<div id="game-container">
+    <div id="timer-container">
+        <div id="timer-bar"></div>
+    </div>
+
+    <div id="monitor">SPEED EQUATION</div>
+
+    <div id="title-text-area">
+        <div class="main-title-text" id="menu-title">SYSTEM PROTOCOL</div>
+        <div id="menu-desc">
+            <ul class="rule-list">
+                <li><span class="rule-tag">[TARGET]</span>方程式を <b>「 X = 〇 」</b> の形にハックせよ。</li>
+                <li><span class="rule-tag">[METHOD]</span>演算モードを切り替え、下のマトリクスをタップ。</li>
+                <li><span class="rule-tag">[WARN  ]</span>ミスは残り時間ペナルティ。コア（スコア）0で強制終了。</li>
+            </ul>
+            <div style="color: #ffb300; font-size: 12px; font-weight: bold; letter-spacing: 0.5px;" id="menu-guide">
+                ── 【1〜9】のキーを叩き、制限時間を設定してハックを開始せよ ──
+            </div>
+        </div>
+    </div>
+
+    <div id="game-play-ui">
+        <div class="panel-title" id="op-title">1. SELECT MODE (四則演算モードを選択)</div>
+        <div id="operator-panel">
+            <button id="op-add" class="op-btn">＋</button>
+            <button id="op-sub" class="op-btn">－</button>
+            <button id="op-mul" class="op-btn">×</button>
+            <button id="op-div" class="op-btn">÷</button>
+        </div>
+    </div>
+
+    <div class="panel-title" id="input-title">2. INPUT TARGET</div>
+    
+    <div class="grid-container">
+        <div style="font-size: 10px; color: #888; margin-bottom: 4px;" id="grid-label">NUMBERS ( 1 〜 9 )</div>
+        <div id="num-grid" class="target-grid"></div>
+    </div>
+
+    <div class="grid-container" id="x-grid-container">
+        <div style="font-size: 10px; color: #888; margin-bottom: 4px;">VARIABLES ( X 〜 9X )</div>
+        <div id="x-grid" class="target-grid"></div>
+    </div>
+
+    <div id="message"></div>
+</div>
+
+<script>
+let eq = { a: 0, divVal: 1, b: 0, c: 0, d: 0 };
+let targetX = 0; 
+let currentOp = '－'; 
+let score = 100;
+let highScore = 0;
+let gameState = "title"; 
+
+let limitTime = 5.0; 
+let timeLeft = limitTime;
+let errorPenalty = 1.5; 
+let timerId = null;
+
+const monitor = document.getElementById("monitor");
+const message = document.getElementById("message");
+const timerBar = document.getElementById("timer-bar");
+const scoreVal = document.getElementById("score-val");
+const highScoreVal = document.getElementById("high-score-val");
+const xGridContainer = document.getElementById("x-grid-container");
+const gamePlayUi = document.getElementById("game-play-ui");
+const inputTitle = document.getElementById("input-title");
+const gridLabel = document.getElementById("grid-label");
+const menuTitle = document.getElementById("menu-title");
+const menuDesc = document.getElementById("menu-desc");
+const titleTextArea = document.getElementById("title-text-area");
+
+let audioCtx = null;
+function playSound(freq, duration, type='sine') {
+    try {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + duration);
+    } catch(e) {
+        console.log("Audio error:", e);
+    }
+}
+
+function createGridButtons() {
+    const numGrid = document.getElementById("num-grid");
+    const xGrid = document.getElementById("x-grid");
+    
+    numGrid.innerHTML = "";
+    xGrid.innerHTML = "";
+
+    for (let i = 1; i <= 9; i++) {
+        const btn = document.createElement("button");
+        btn.className = "target-btn"; btn.textContent = i;
+        btn.id = "n-btn-" + i;
+        btn.onclick = () => handleNumberTap(i);
+        numGrid.appendChild(btn);
+    }
+    for (let i = 1; i <= 9; i++) {
+        const btn = document.createElement("button");
+        btn.className = "target-btn x-type"; btn.textContent = i === 1 ? "X" : i + "X";
+        btn.onclick = () => handleXTap(i);
+        xGrid.appendChild(btn);
+    }
+}
+
+function showTitleScreen(isGameOver = false) {
+    clearInterval(timerId);
+    titleTextArea.style.display = "block"; 
+    
+    if (isGameOver) {
+        gameState = "gameover";
+        menuTitle.textContent = "CONNECTION CRASHED";
+        menuTitle.style.color = "#ff3333";
+        menuTitle.style.textShadow = "0 0 10px #ff3333";
+        menuDesc.innerHTML = `
+            <div style="color:#fff; font-size:14px; margin-bottom:15px;">
+                最終コアスコア: <span style="color:#39ff14; font-size:20px; font-weight:bold;">${score}</span> | 最高ログ: ${highScore}
+            </div>
+            <div style="color: #ffb300; font-size: 12px; font-weight: bold;">
+                ── 【1〜9】のいずれキーを押して制限時間を再設定せよ ──
+            </div>
+        `;
+        monitor.textContent = "CRASHED...";
+    } else {
+        gameState = "title";
+        menuTitle.textContent = "SYSTEM PROTOCOL";
+        menuTitle.style.color = "#39ff14";
+        menuTitle.style.textShadow = "0 0 10px #39ff14";
+        menuDesc.innerHTML = `
+            <ul class="rule-list">
+                <li><span class="rule-tag">[TARGET]</span>方程式を <b>「 X = 〇 」</b> の形にハックせよ。</li>
+                <li><span class="rule-tag">[METHOD]</span>演算モードを切り替え、下のマトリクスをタップ。</li>
+                <li><span class="rule-tag">[WARN  ]</span>ミスは残り時間ペナルティ。コア（スコア）0で強制終了。</li>
+            </ul>
+            <div style="color: #ffb300; font-size: 12px; font-weight: bold;">
+                ── 【1〜9】のキーを叩き、制限時間を設定してハックを開始せよ ──
+            </div>
+        `;
+        monitor.textContent = "SELECT TIME";
+    }
+    
+    gamePlayUi.style.display = "none";
+    xGridContainer.style.display = "none";
+    inputTitle.textContent = "SELECT INITIAL TIME (初期制限時間を選択)";
+    gridLabel.textContent = "TIME SETTING ( 1SEC 〜 9SEC )";
+    
+    for(let i=1; i<=9; i++) {
+        document.getElementById("n-btn-"+i).classList.add("select-active");
+    }
+}
+
+function handleNumberTap(num) {
+    if (gameState === "title" || gameState === "gameover") {
+        limitTime = num;
+        errorPenalty = Math.max(1.0, Number((limitTime * 0.25).toFixed(1)));
+        
+        score = 100;
+        scoreVal.textContent = score;
+        
+        for(let i=1; i<=9; i++) {
+            document.getElementById("n-btn-"+i).classList.remove("select-active");
+        }
+        
+        titleTextArea.style.display = "none";
+        gamePlayUi.style.display = "block";
+        xGridContainer.style.display = "block";
+        inputTitle.textContent = "2. INPUT TARGET (実行する数字またはXをクリック)";
+        gridLabel.textContent = "NUMBERS ( 1 〜 9 )";
+        
+        playSound(440, 0.1, 'square');
+        setTimeout(() => playSound(880, 0.15, 'square'), 80);
+        
+        generateStage();
+    } else if (gameState === "playing") {
+        executeAction({ type: 'num', v: num });
+    }
+}
+
+function handleXTap(num) {
+    if (gameState === "playing") {
+        executeAction({ type: 'x', v: num });
+    }
+}
+
+function generateStage() {
+    gameState = "playing";
+    setupOperatorClickEvents();
+    selectOperator('－'); 
+    message.textContent = `HACKING IN PROGRESS... [LIMIT: ${limitTime}s / PENALTY: -${errorPenalty}s]`;
+    message.style.color = "#39ff14";
+
+    eq = { a: 0, divVal: 1, b: 0, c: 0, d: 0 };
+    targetX = Math.floor(Math.random() * 4) + 2; 
+    
+    if (Math.random() < 0.2) { 
+        eq.divVal = 2; eq.a = 1; eq.c = 0;
+        eq.b = Math.floor(Math.random() * 2) + 1; 
+        eq.d = (targetX / eq.divVal) + eq.b; 
+    } else {
+        eq.divVal = 1;
+        eq.a = Math.floor(Math.random() * 2) + 2; 
+        eq.c = Math.floor(Math.random() * (eq.a - 1)) + 1; 
+        eq.d = Math.floor(Math.random() * 6) + 6;
+        eq.b = (eq.c * targetX) + eq.d - (eq.a * targetX);
+    }
+
+    timeLeft = limitTime;
+    updateTimerBar();
+    clearInterval(timerId);
+    timerId = setInterval(tick, 100); 
+
+    updateUI();
+}
+
+function tick() {
+    if (gameState !== "playing") return;
+
+    timeLeft -= 0.1;
+    if (timeLeft <= 0) {
+        timeLeft = 0;
+        updateTimerBar();
+        clearInterval(timerId);
+        handleTimeUp(); 
+    }
+    updateTimerBar();
+}
+
+function updateTimerBar() {
+    const percentage = (timeLeft / limitTime) * 100;
+    timerBar.style.width = `${percentage}%`;
+    if (percentage > 50) timerBar.style.backgroundColor = "#39ff14";
+    else if (percentage > 20) timerBar.style.backgroundColor = "#ffb300";
+    else timerBar.style.backgroundColor = "#ff3333";
+}
+
+function handleTimeUp() {
+    playSound(100, 0.4, 'sawtooth');
+    modifyScore(-25); 
+    
+    if (gameState !== "gameover") {
+        message.textContent = "⏱️ TIME UP! コアデクリメント... 次のマトリクスを生成。";
+        message.style.color = "#ffb300";
+        gameState = "win_pause";
+        setTimeout(generateStage, 1200); 
+    }
+}
+
+function modifyScore(amount) {
+    score += amount;
+    if (score <= 0) {
+        score = 0;
+        showTitleScreen(true); 
+    }
+    scoreVal.textContent = score;
+}
+
+function setupOperatorClickEvents() {
+    document.getElementById("op-add").onclick = () => selectOperator('＋');
+    document.getElementById("op-sub").onclick = () => selectOperator('－');
+    document.getElementById("op-mul").onclick = () => selectOperator('×');
+    document.getElementById("op-div").onclick = () => selectOperator('÷');
+}
+
+function selectOperator(op) {
+    if (gameState !== "playing") return;
+    currentOp = op;
+    document.getElementById("op-add").classList.remove("selected");
+    document.getElementById("op-sub").classList.remove("selected");
+    document.getElementById("op-mul").classList.remove("selected");
+    document.getElementById("op-div").classList.remove("selected");
+
+    if (op === '＋') document.getElementById("op-add").classList.add("selected");
+    if (op === '－') document.getElementById("op-sub").classList.add("selected");
+    if (op === '×') document.getElementById("op-mul").classList.add("selected");
+    if (op === '÷') document.getElementById("op-div").classList.add("selected");
+    playSound(300, 0.04);
+}
+
+function executeAction(target) {
+    if (gameState !== "playing") return;
+    let v = target.v;
+
+    if ((currentOp === '×' || currentOp === '÷') && target.type === 'x') {
+        triggerError(`❌ OVERRIDE ERROR: 不能演算 (-${errorPenalty}s)`);
+        return;
+    }
+
+    if (currentOp === '＋') {
+        if (target.type === 'num') { eq.b += v; eq.d += v; }
+        else { eq.a += v; eq.c += v; }
+    } 
+    else if (currentOp === '－') {
+        if (target.type === 'num') { eq.b -= v; eq.d -= v; }
+        else { eq.a -= v; eq.c -= v; }
+    } 
+    else if (currentOp === '×') {
+        if (eq.divVal % v === 0) { eq.divVal /= v; } else { eq.a *= v; }
+        eq.b *= v; eq.c *= v; eq.d *= v;
+    } 
+    else if (currentOp === '÷') {
+        if (eq.b % v === 0 && eq.c % v === 0 && eq.d % v === 0 && (eq.a % v === 0 || eq.divVal === 1)) {
+            if (eq.a % v === 0) { eq.a /= v; } else { eq.divVal *= v; }
+            eq.b /= v; eq.c /= v; eq.d /= v;
+        } else {
+            triggerError(`❌ CALCULATION ERROR: 割り切れず (-${errorPenalty}s)`);
+            return;
+        }
+    }
+
+    playSound(550, 0.05, 'sine');
+    updateUI();
+}
+
+function triggerError(msg) {
+    let container = document.getElementById("game-container");
+    playSound(140, 0.2, 'sawtooth');
+    message.textContent = msg;
+    message.style.color = "#ff3333";
+    container.classList.add("shake");
+    setTimeout(() => container.classList.remove("shake"), 300);
+
+    timeLeft -= errorPenalty;
+    if (timeLeft < 0) timeLeft = 0;
+    updateTimerBar();
+    if (timeLeft === 0) {
+        clearInterval(timerId);
+        handleTimeUp();
+    }
+}
+
+function updateUI() {
+    let leftStr = formatSide(eq.a, eq.divVal, eq.b);
+    let rightStr = formatSide(eq.c, 1, eq.d);
+    monitor.textContent = `${leftStr} = ${rightStr}`;
+
+    if (eq.a === 1 && eq.divVal === 1 && eq.b === 0 && eq.c === 0 && Math.abs(eq.d - targetX) < 0.01) {
+        handleWin();
+    }
+}
+
+function formatSide(a, div, b) {
+    let parts = [];
+    if (a !== 0) {
+        if (div > 1) { parts.push(a === 1 ? `X/${div}` : `${a}X/${div}`); } 
+        else { parts.push(a === 1 ? "X" : a === -1 ? "-X" : a + "X"); }
+    }
+    if (b !== 0 || parts.length === 0) {
+        if (b > 0 && parts.length > 0) parts.push("+");
+        parts.push(Number(b.toFixed(2)));
+    }
+    return parts.join(" ");
+}
+
+function handleWin() {
+    gameState = "win_pause";
+    clearInterval(timerId);
+
+    let scoreBonus = Math.round(timeLeft * (50 / limitTime));
+    modifyScore(scoreBonus);
+
+    if (score > highScore) {
+        highScore = score;
+        highScoreVal.textContent = highScore;
+    }
+
+    playSound(523.25, 0.08, 'square');
+    setTimeout(() => playSound(659.25, 0.08, 'square'), 60);
+    setTimeout(() => playSound(783.99, 0.08, 'square'), 120);
+    setTimeout(() => playSound(1046.50, 0.3, 'square'), 180);
+
+    message.innerHTML = `🏆 MATRIX SOLVED! ＋${scoreBonus} PTS`;
+    message.style.color = "#39ff14";
+
+    setTimeout(generateStage, 1000);
+}
+
+createGridButtons();
+showTitleScreen(false);
+</script>
+
+</body>
+</html>
