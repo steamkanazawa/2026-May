@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prime Harvest - Floating Gems</title>
+
+<style>
+body {
+    margin: 0;
+    background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);
+    color: #333;
+    font-family: 'Arial Rounded MT Bold', 'Rounded Mplus 1c', sans-serif;
+    text-align: center;
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ＝ 上半分：メインターゲット ＝ */
+#target-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    gap: 20px; /* 数字と素数リストの間のスキマ */
+}
+
+#big-node {
+    width: 130px;
+    height: 130px;
+    background: #fff9c4;
+    border: 6px solid #fbc02d;
+    border-radius: 35px;
+    color: #d32f2f;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 52px;
+    font-weight: bold;
+    box-shadow: 0 10px 0 rgba(245, 127, 23, 0.2);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* 💠 ターゲットの下に小さく横に並ぶ素数たちのエリア */
+#gem-list {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    min-height: 40px; /* 中身が空でも高さをキープ */
+    width: 100%;
+}
+
+.prime-gem {
+    width: 38px;
+    height: 38px;
+    background: #ff9800;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 18px;
+    font-weight: bold;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    flex-shrink: 0;
+    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    transition: all 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+@keyframes popIn {
+    0% { transform: scale(0); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* ＝ 下半分：操作パネル（コンソール） ＝ */
+#control-panel {
+    background: rgba(255, 255, 255, 0.9);
+    border-top: 4px dashed #ff6b6b;
+    padding: 15px 10px;
+    box-shadow: 0 -5px 20px rgba(0,0,0,0.08);
+    z-index: 100;
+}
+
+/* ⏱ タイマーバー */
+#timer-container {
+    width: 92vw;
+    max-width: 460px;
+    height: 14px;
+    background: #ddd;
+    margin: 0 auto 12px auto;
+    border-radius: 10px;
+    border: 2px solid #fff;
+    overflow: hidden;
+}
+
+#timer-bar {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to right, #4caf50, #8bc34a);
+    transition: width 0.1s linear;
+}
+
+/* 📊 スコア＆ランク */
+#status-bar {
+    display: flex;
+    justify-content: space-around;
+    max-width: 460px;
+    margin: 0 auto 15px auto;
+    font-size: 16px;
+    font-weight: bold;
+}
+.status-item {
+    background: #fff;
+    padding: 6px 18px;
+    border-radius: 20px;
+    border: 2px solid #ff6b6b;
+    box-shadow: 0 3px 0 rgba(255, 107, 107, 0.2);
+}
+.status-label { color: #666; font-size: 11px; margin-right: 6px; }
+.status-val { color: #ff6b6b; }
+
+/* 🟢 操作ボタン */
+.button-container {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    max-width: 460px;
+    margin: 0 auto;
+}
+
+button {
+    flex: 1;
+    max-width: 100px;
+    height: 70px;
+    font-size: 24px;
+    font-weight: bold;
+    background: #fff;
+    color: #4caf50;
+    border: 3px solid #4caf50;
+    border-radius: 18px;
+    cursor: pointer;
+    box-shadow: 0 6px 0 #388e3c;
+}
+
+button:active { transform: translateY(6px); box-shadow: 0 0 0 #388e3c; }
+.stock-count { font-size: 11px; display: block; color: #666; margin-top: -1px; }
+
+/* 💬 メッセージ */
+#message {
+    height: 24px;
+    font-size: 18px;
+    font-weight: bold;
+    color: #333;
+    margin-top: 10px;
+}
+
+.score-popup {
+    position: fixed;
+    font-size: 36px;
+    font-weight: bold;
+    color: #ff3f34;
+    text-shadow: 2px 2px 0px #fff;
+    pointer-events: none;
+    z-index: 1000;
+    animation: scoreFloat 1.2s ease-out forwards;
+}
+
+@keyframes scoreFloat {
+    0% { transform: scale(0.5) translateY(0); opacity: 0; }
+    30% { transform: scale(1.2) translateY(-40px); opacity: 1; }
+    100% { transform: scale(1.0) translateY(-120px); opacity: 0; }
+}
+</style>
+</head>
+<body>
+
+<div id="target-area">
+    <div id="big-node">0</div>
+    <div id="gem-list"></div> </div>
+
+<div id="control-panel">
+    
+    <div id="timer-container">
+        <div id="timer-bar"></div>
+    </div>
+
+    <div id="status-bar">
+        <div class="status-item">
+            <span class="status-label">SCORE</span><span id="total-score" class="status-val">0</span>
+        </div>
+        <div class="status-item">
+            <span class="status-label">RANK</span><span id="rank-display" class="status-val">みならい 🍏</span>
+        </div>
+    </div>
+
+    <div class="button-container">
+        <button id="btn-2" onclick="factor(2)">2<span class="stock-count">x<span id="score-2">0</span></span></button>
+        <button id="btn-3" onclick="factor(3)">3<span class="stock-count">x<span id="score-3">0</span></span></button>
+        <button id="btn-5" onclick="factor(5)">5<span class="stock-count">x<span id="score-5">0</span></span></button>
+        <button id="btn-7" onclick="factor(7)">7<span class="stock-count">x<span id="score-7">0</span></span></button>
+    </div>
+
+    <div id="message"></div>
+</div>
+
+<script>
+const bigNode = document.getElementById("big-node");
+const gemList = document.getElementById("gem-list");
+const message = document.getElementById("message");
+const scoreDisplay = document.getElementById("total-score");
+const rankDisplay = document.getElementById("rank-display");
+const timerBar = document.getElementById("timer-bar");
+
+let totalScore = 0;
+let harvestScores = {2: 0, 3: 0, 5: 0, 7: 0};
+let currentNumber = 0;
+let gemElements = [];
+let initialNumber = 0; 
+let missCount = 0; 
+
+let timeLeft = 10; 
+const maxTime = 10; 
+let timerInterval = null;
+let isPlaying = false;
+
+const primes = [2, 3, 5, 7];
+const numbers = [12, 18, 20, 24, 30, 36, 40, 42, 45, 50, 60, 70, 72, 84, 90, 105, 120, 140];
+
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let audioCtx;
+
+function initAudio() {
+    if (!audioCtx) audioCtx = new AudioContext();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function playPopSound() {
+    initAudio();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1760, audioCtx.currentTime + 0.1);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+}
+
+function playTimeUpSound() {
+    initAudio();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+    osc.frequency.linearRampToValueAtTime(150, audioCtx.currentTime + 0.4);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start(); osc.stop(audioCtx.currentTime + 0.4);
+}
+
+function playWinSound() {
+    const freqs = [523.25, 659.25, 783.99, 1046.50];
+    const now = audioCtx.currentTime;
+    freqs.forEach((freq, i) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + i * 0.08);
+        gain.gain.setValueAtTime(0.2, now + i * 0.08);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.08 + 0.3);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(now + i * 0.08); osc.stop(now + i * 0.08 + 0.3);
+    });
+}
+
+function updateUI() {
+    scoreDisplay.textContent = totalScore;
+    for(let p of primes) document.getElementById(`score-${p}`).textContent = harvestScores[p];
+    
+    if (totalScore >= 5000) rankDisplay.textContent = "収穫神 ✨";
+    else if (totalScore >= 3000) rankDisplay.textContent = "マスター 👑";
+    else if (totalScore >= 1000) rankDisplay.textContent = "ベテラン 🍎";
+    else rankDisplay.textContent = "みならい 🍏";
+}
+
+function startTimer() {
+    clearInterval(timerInterval);
+    timeLeft = maxTime;
+    isPlaying = true;
+    updateTimerBar();
+
+    timerInterval = setInterval(() => {
+        if (!isPlaying) return;
+        timeLeft -= 0.1;
+        updateTimerBar();
+
+        if (timeLeft <= 0) {
+            handleTimeUp();
+        }
+    }, 100);
+}
+
+function updateTimerBar() {
+    const percentage = (timeLeft / maxTime) * 100;
+    timerBar.style.width = `${percentage}%`;
+
+    if (percentage > 50) {
+        timerBar.style.backgroundColor = "#4caf50";
+    } else if (percentage > 25) {
+        timerBar.style.backgroundColor = "#ffeb3b";
+    } else {
+        timerBar.style.backgroundColor = "#f44336";
+    }
+}
+
+function handleTimeUp() {
+    clearInterval(timerInterval);
+    isPlaying = false;
+    playTimeUpSound();
+    
+    message.textContent = "⏱ タイムアップ！次へ進むよ";
+    message.style.color = "#d32f2f";
+    
+    document.querySelectorAll("button").forEach(b => b.disabled = true);
+    
+    setTimeout(() => {
+        document.querySelectorAll("button").forEach(b => b.disabled = false);
+        newMeteor();
+    }, 1500);
+}
+
+function showScorePopup(x, y, text, color = "#ff3f34") {
+    const popup = document.createElement('div');
+    popup.className = 'score-popup';
+    popup.textContent = text;
+    popup.style.left = x + 'px';
+    popup.style.top = y + 'px';
+    popup.style.color = color;
+    document.body.appendChild(popup);
+    setTimeout(() => popup.remove(), 1200);
+}
+
+function newMeteor() {
+    gemList.innerHTML = ""; // 💠 リストをリセット
+    gemElements = [];
+    missCount = 0;
+    initialNumber = numbers[Math.floor(Math.random() * numbers.length)];
+    currentNumber = initialNumber;
+    
+    bigNode.textContent = currentNumber;
+    bigNode.style.background = "#fff9c4";
+    bigNode.style.transform = "scale(1)";
+    
+    message.textContent = "素因数を選ぼう！";
+    message.style.color = "#333";
+    
+    startTimer(); 
+}
+
+function factor(p) {
+    if (!isPlaying) return;
+    initAudio();
+
+    if (currentNumber % p !== 0) {
+        message.textContent = `❌ ${p}では割れない！`;
+        missCount++; 
+        bigNode.style.transform = "translateX(-10px)";
+        setTimeout(() => bigNode.style.transform = "translateX(10px)", 80);
+        setTimeout(() => bigNode.style.transform = "translateX(0)", 160);
+        return;
+    }
+    
+    playPopSound();
+    currentNumber = currentNumber / p;
+    
+    bigNode.textContent = currentNumber;
+    bigNode.style.transform = "scale(1.15)";
+    setTimeout(() => bigNode.style.transform = "scale(1)", 150);
+
+    // 💠 ターゲットのすぐ下に割れた素数を小さく追加
+    const gem = document.createElement('div');
+    gem.className = 'prime-gem'; 
+    gem.textContent = p;
+    gemList.appendChild(gem);
+    gemElements.push({ el: gem, p: p });
+
+    message.textContent = `いいね！ ÷ ${p}`;
+
+    if(primes.includes(currentNumber)) {
+        isPlaying = false; 
+        clearInterval(timerInterval);
+
+        // 最後の素数もリストに追加
+        const lastGem = document.createElement('div');
+        lastGem.className = 'prime-gem'; 
+        lastGem.textContent = currentNumber;
+        gemList.appendChild(lastGem);
+        gemElements.push({ el: lastGem, p: currentNumber });
+
+        bigNode.textContent = "⭐";
+        bigNode.style.background = "#fff";
+        bigNode.style.transform = "scale(1.25)";
+        playWinSound();
+        
+        let gain = initialNumber; 
+        let noMissBonus = (missCount === 0) ? 100 : 0; 
+        let timeBonus = Math.max(0, Math.floor(timeLeft) * 5); 
+        
+        totalScore += gain + noMissBonus + timeBonus;
+
+        const midY = window.innerHeight / 3;
+        showScorePopup(window.innerWidth/2 - 50, midY, `+${gain}`);
+        if(noMissBonus > 0) {
+            setTimeout(() => showScorePopup(window.innerWidth/2 - 90, midY + 40, "NO MISS! +100", "#ff9f43"), 250);
+        }
+        if(timeBonus > 0) {
+            setTimeout(() => showScorePopup(window.innerWidth/2 - 90, midY + 80, `TIME BONUS! +${timeBonus}`, "#4caf50"), 500);
+        }
+
+        message.textContent = `🎉 大収穫！`;
+        message.style.color = "#ff4757";
+        document.querySelectorAll("button").forEach(b => b.disabled = true);
+        setTimeout(harvestAnimate, 800);
+    }
+}
+
+function harvestAnimate() {
+    let delay = 0;
+    gemElements.forEach((gemObj) => {
+        setTimeout(() => {
+            const gemRect = gemObj.el.getBoundingClientRect();
+            gemObj.el.style.position = 'fixed';
+            gemObj.el.style.left = gemRect.left + 'px';
+            gemObj.el.style.top = gemRect.top + 'px';
+            document.body.appendChild(gemObj.el);
+
+            const btn = document.getElementById(`btn-${gemObj.p}`);
+            const btnRect = btn.getBoundingClientRect();
+
+            setTimeout(() => {
+                gemObj.el.style.left = (btnRect.left + btnRect.width/2 - 19) + 'px';
+                gemObj.el.style.top = (btnRect.top + btnRect.height/2 - 19) + 'px';
+                gemObj.el.style.transform = 'scale(0.3)';
+            }, 20);
+
+            setTimeout(() => {
+                gemObj.el.remove();
+                btn.classList.add('absorbed');
+                setTimeout(() => btn.classList.remove('absorbed'), 200);
+                harvestScores[gemObj.p] += 1;
+                updateUI();
+            }, 620);
+        }, delay);
+        delay += 150;
+    });
+
+    setTimeout(() => {
+        document.querySelectorAll("button").forEach(b => b.disabled = false);
+        newMeteor();
+    }, delay + 800);
+}
+
+updateUI();
+newMeteor();
+</script>
+
+</body>
+</html>
