@@ -2,37 +2,153 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>料理キャッチキッチン</title>
+<title>料理キャッチキッチン 完全版</title>
+
 <style>
-body{margin:0;background:#fff1c7;font-family:sans-serif;text-align:center}
-#main{display:flex;justify-content:center;align-items:flex-start;gap:12px}
-.panel{width:220px;background:white;border:3px solid #333;border-radius:14px;padding:10px;margin-top:10px}
-canvas{background:linear-gradient(#bdefff,#fff7dd);border:4px solid #333;border-radius:16px;margin-top:10px}
-button{font-size:30px;padding:18px 45px;margin:8px;border:none;border-radius:18px;background:#ffb347;font-weight:bold}
-.controls button{background:#7ec8ff;font-size:32px;padding:20px 70px}
-table{width:100%;border-collapse:collapse}
-td,th{border:1px solid #333;padding:5px;font-size:14px}
-.plate-row td{font-size:18px;font-weight:bold;background:#eaf7ff}
-ol{text-align:left}
+body{
+  margin:0;
+  background:#fff1c7;
+  font-family:sans-serif;
+  text-align:center;
+}
+
+#main{
+  display:flex;
+  justify-content:center;
+  align-items:flex-start;
+  gap:12px;
+}
+
+.panel{
+  width:260px;
+  background:white;
+  border:3px solid #333;
+  border-radius:14px;
+  padding:10px;
+  margin-top:10px;
+}
+
+canvas{
+  background:linear-gradient(#bdefff,#fff7dd);
+  border:4px solid #333;
+  border-radius:16px;
+  margin-top:10px;
+}
+
+button{
+  font-size:30px;
+  padding:18px 45px;
+  margin:8px;
+  border:none;
+  border-radius:18px;
+  background:#ffb347;
+  font-weight:bold;
+}
+
+.controls button{
+  background:#7ec8ff;
+  font-size:32px;
+  padding:20px 70px;
+}
+
+.smallBtn{
+  font-size:16px;
+  padding:10px 14px;
+  margin:5px;
+  border-radius:12px;
+  background:#ff8888;
+}
+
+.confirmBtn{
+  background:#ff5555;
+}
+
+.cancelBtn{
+  background:#aaa;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+}
+
+th:nth-child(1),td:nth-child(1){
+  min-width:115px;
+  white-space:nowrap;
+}
+
+th:nth-child(2),td:nth-child(2){
+  min-width:125px;
+  white-space:nowrap;
+}
+
+td,th{
+  border:1px solid #333;
+  padding:5px;
+  font-size:14px;
+}
+
+.special-row td{
+  background:#fff8b8;
+  font-weight:bold;
+}
+
+.plate-row td{
+  font-size:17px;
+  font-weight:bold;
+  background:#eaf7ff;
+}
+
+.candy-row td{
+  background:#ffdede;
+  font-weight:bold;
+}
+
+ol{
+  text-align:left;
+}
+
+#confirmBox{
+  display:none;
+  background:#fff0f0;
+  border:2px solid #d33;
+  border-radius:12px;
+  padding:8px;
+  margin-top:8px;
+  font-size:14px;
+}
 </style>
 </head>
+
 <body>
 
-<h2>料理キャッチキッチン</h2>
+<h2>料理キャッチキッチン 完全版</h2>
+
 <button onclick="startGame()">スタート</button>
 
 <div id="main">
+
 <div class="panel">
 <h3>ベストスコア</h3>
 <ol id="ranking"></ol>
+
+<button class="smallBtn" onclick="showDeleteConfirm()">ランキング消去</button>
+
+<div id="confirmBox">
+  <p>本当に消しますか？</p>
+  <button class="smallBtn confirmBtn" onclick="deleteRanking()">消去する</button>
+  <button class="smallBtn cancelBtn" onclick="hideDeleteConfirm()">やめる</button>
+</div>
 </div>
 
 <canvas id="game" width="900" height="540"></canvas>
 
 <div class="panel">
 <h3>料理スコア表</h3>
+
 <table>
-<tr><th>料理</th><th>点数</th></tr>
+<tr><th>料理</th><th>点数/効果</th></tr>
+
 <tr><td>🍙 おにぎり</td><td>10</td></tr>
 <tr><td>🍎 りんご</td><td>15</td></tr>
 <tr><td>🍔 ハンバーガー</td><td>30</td></tr>
@@ -41,27 +157,56 @@ ol{text-align:left}
 <tr><td>🍰 ケーキ</td><td>60</td></tr>
 <tr><td>🍣 すし</td><td>80</td></tr>
 <tr><td>🥩 ステーキ</td><td>100</td></tr>
-<tr><td>👑 高級料理</td><td>600</td></tr>
-<tr class="plate-row"><td>🍽️ 皿</td><td>最大取得数+1<br>皿巨大化</td></tr>
-<tr><td>🍬 キャンディー</td><td>10秒加速</td></tr>
+
+<tr class="special-row">
+  <td>👑 高級料理</td>
+  <td>600</td>
+</tr>
+
+<tr class="plate-row">
+  <td>🍽️ 皿</td>
+  <td>最大取得数+1<br>皿巨大化</td>
+</tr>
+
+<tr class="candy-row">
+  <td>🍬 キャンディー</td>
+  <td>10秒加速</td>
+</tr>
 </table>
 </div>
+
 </div>
 
 <div class="controls">
-<button onmousedown="btn.left=true" onmouseup="btn.left=false" ontouchstart="btn.left=true" ontouchend="btn.left=false">← 左</button>
-<button onmousedown="btn.right=true" onmouseup="btn.right=false" ontouchstart="btn.right=true" ontouchend="btn.right=false">右 →</button>
+<button 
+onmousedown="btn.left=true" 
+onmouseup="btn.left=false" 
+ontouchstart="btn.left=true" 
+ontouchend="btn.left=false">
+← 左
+</button>
+
+<button 
+onmousedown="btn.right=true" 
+onmouseup="btn.right=false" 
+ontouchstart="btn.right=true" 
+ontouchend="btn.right=false">
+右 →
+</button>
 </div>
 
 <script>
-const canvas=document.getElementById("game");
+    const canvas=document.getElementById("game");
 const ctx=canvas.getContext("2d");
 const rankingEl=document.getElementById("ranking");
+const confirmBox=document.getElementById("confirmBox");
 
 let player,items,score,gameOver,keys,btn,kitchen,startTime;
 let spawnTimer=0,timeLimit=60;
 let candyDropped=false,plateDropped=0,specialDropped=false,saved=false;
 let notice="",noticeTimer=0;
+let audioCtx=null;
+let candyBgmTimer=null;
 
 const foods=[
  {emoji:"🍙",name:"おにぎり",price:10},
@@ -73,6 +218,70 @@ const foods=[
  {emoji:"🍣",name:"すし",price:80},
  {emoji:"🥩",name:"ステーキ",price:100}
 ];
+
+function initAudio(){
+ if(!audioCtx){
+  audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+ }
+ if(audioCtx.state==="suspended") audioCtx.resume();
+}
+
+function beep(freq,duration,type="sine",volume=0.08){
+ if(!audioCtx)return;
+ const osc=audioCtx.createOscillator();
+ const gain=audioCtx.createGain();
+ osc.type=type;
+ osc.frequency.value=freq;
+ gain.gain.value=volume;
+ osc.connect(gain);
+ gain.connect(audioCtx.destination);
+ osc.start();
+ gain.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+duration);
+ osc.stop(audioCtx.currentTime+duration);
+}
+
+function catchSound(){
+ beep(220,0.08,"square",0.06);
+ setTimeout(()=>beep(160,0.08,"square",0.05),70);
+}
+
+function cookSound(){
+ beep(500,0.06,"triangle",0.06);
+ setTimeout(()=>beep(700,0.06,"triangle",0.06),70);
+ setTimeout(()=>beep(900,0.08,"triangle",0.06),140);
+}
+
+function startCandyBgm(){
+ if(candyBgmTimer)return;
+ let notes=[660,740,880,740];
+ let i=0;
+ candyBgmTimer=setInterval(()=>{
+  beep(notes[i%notes.length],0.12,"sine",0.035);
+  i++;
+ },220);
+}
+
+function stopCandyBgm(){
+ if(candyBgmTimer){
+  clearInterval(candyBgmTimer);
+  candyBgmTimer=null;
+ }
+}
+
+function showDeleteConfirm(){
+ confirmBox.style.display="block";
+}
+
+function hideDeleteConfirm(){
+ confirmBox.style.display="none";
+}
+
+function deleteRanking(){
+ localStorage.removeItem("cookRanking");
+ hideDeleteConfirm();
+ loadRanking();
+ showNotice("ランキングを消去しました");
+}
 
 function chooseFood(){
  const elapsed=(Date.now()-startTime)/1000;
@@ -130,6 +339,9 @@ function saveScore(){
 }
 
 function startGame(){
+ initAudio();
+ stopCandyBgm();
+
  player={
   x:420,y:420,w:55,h:75,
   speed:7,baseSpeed:7,
@@ -137,6 +349,7 @@ function startGame(){
   candyUntil:0,
   plateScale:1
  };
+
  kitchen={x:330,y:420,w:240,h:105};
  items=[];
  score=0;
@@ -158,7 +371,10 @@ document.addEventListener("keydown",e=>{
  keys[e.key]=true;
  if((e.key==="Enter"||e.key===" ") && gameOver) startGame();
 });
-document.addEventListener("keyup",e=>keys[e.key]=false);
+
+document.addEventListener("keyup",e=>{
+ keys[e.key]=false;
+});
 
 function spawnItem(){
  const elapsed=(Date.now()-startTime)/1000;
@@ -236,12 +452,19 @@ function update(){
 
  if(elapsed>=timeLimit){
   gameOver=true;
+  stopCandyBgm();
   saveScore();
   return;
  }
 
  const candyActive=now<player.candyUntil;
  player.speed=candyActive?player.baseSpeed+4:player.baseSpeed;
+
+ if(candyActive){
+  startCandyBgm();
+ }else{
+  stopCandyBgm();
+ }
 
  if(keys["ArrowLeft"]||keys["a"]||btn.left)player.x-=player.speed;
  if(keys["ArrowRight"]||keys["d"]||btn.right)player.x+=player.speed;
@@ -269,6 +492,7 @@ function update(){
   if(hit){
    if(it.kind==="food"&&player.carrying.length<player.capacity){
     player.carrying.push(it);
+    catchSound();
     items.splice(i,1);
    }else if(it.kind==="plate"){
     if(player.capacity<3)player.capacity++;
@@ -291,6 +515,7 @@ function update(){
 
  if(inKitchen){
   for(const f of player.carrying)score+=f.price;
+  cookSound();
   player.carrying=[];
  }
 
@@ -424,13 +649,13 @@ function draw(){
 
  if(noticeTimer>0){
   ctx.fillStyle="rgba(255,230,80,0.95)";
-  ctx.fillRect(315,90,270,55);
+  ctx.fillRect(300,90,310,55);
   ctx.strokeStyle="#333";
-  ctx.strokeRect(315,90,270,55);
+  ctx.strokeRect(300,90,310,55);
 
   ctx.fillStyle="#111";
-  ctx.font="28px sans-serif";
-  ctx.fillText(notice,350,128);
+  ctx.font="26px sans-serif";
+  ctx.fillText(notice,330,128);
  }
 
  if(gameOver){
