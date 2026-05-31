@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>STEAM発明工房</title>
+<style>
+body{margin:0;font-family:"Yu Gothic",sans-serif;background:#eaf6ff;color:#222}
+header{background:#2b7cff;color:white;padding:12px;text-align:center;font-size:24px;font-weight:bold}
+main{max-width:1400px;margin:auto;padding:12px}
+.card{background:white;border-radius:12px;padding:12px;margin:10px 0;box-shadow:0 3px 8px #0002}
+.status{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:22px;font-weight:bold}
+#mission{font-size:28px;font-weight:bold}
+.parts{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+.part{padding:12px;border:2px solid #ccc;border-radius:9px;background:#f7f7f7;cursor:pointer;text-align:center;font-size:17px}
+.part.selected{background:#ffe680;border-color:#ff9900}
+.part.locked{background:#ddd;color:#777;cursor:not-allowed}
+button{width:100%;padding:10px;border:none;border-radius:9px;background:#2b7cff;color:white;font-size:16px;font-weight:bold;cursor:pointer;margin-top:6px}
+button:hover{background:#145fd1}
+.buy{background:#18a058}
+.buy:hover{background:#0d7b41}
+.reset{background:#d33}
+.reset:hover{background:#a22}
+#result{font-size:17px;line-height:1.5}
+.good{color:#0a9b3f;font-weight:bold}
+.bad{color:#d33;font-weight:bold}
+.small{font-size:14px;color:#555}
+h2{margin:4px 0 8px;font-size:20px}
+</style>
+</head>
+<body>
+
+<header>STEAM発明工房</header>
+
+<main>
+  <div class="card status">
+    <div>ステージ：<span id="stage">1</span></div>
+    <div>スコア：<span id="totalScore">0</span></div>
+    <div>お金：<span id="money">100</span>円</div>
+  </div>
+
+  <div class="card">
+    <div class="small">今回の依頼</div>
+    <div id="mission"></div>
+    <p id="hint"></p>
+  </div>
+
+  <div class="card">
+    <h2>部品</h2>
+    <div class="parts" id="parts"></div>
+    <button onclick="checkAnswer()">完成！</button>
+  </div>
+
+  <div class="card">
+    <h2>ショップ</h2>
+    <div class="parts" id="shop"></div>
+  </div>
+
+  <div class="card">
+    <h2>結果</h2>
+    <div id="result">まだ発明していません。</div>
+    <button onclick="nextMission()">次の依頼へ</button>
+    <button class="reset" onclick="resetGame()">最初からやり直す</button>
+  </div>
+</main>
+
+<script>
+const SAVE_KEY = "steam_invention_game_save_v1";
+
+const partsList = [
+  {name:"電池", price:0, start:true},
+  {name:"LED", price:0, start:true},
+  {name:"スイッチ", price:0, start:true},
+  {name:"ブザー", price:50, start:false},
+  {name:"モーター", price:80, start:false},
+  {name:"人感センサー", price:120, start:false},
+  {name:"超音波センサー", price:120, start:false},
+  {name:"サーボモーター", price:130, start:false},
+  {name:"Arduino", price:200, start:false},
+  {name:"OLED", price:150, start:false},
+  {name:"温度センサー", price:100, start:false},
+  {name:"光センサー", price:90, start:false},
+  {name:"水位センサー", price:110, start:false},
+  {name:"タッチセンサー", price:100, start:false},
+  {name:"ファン", price:90, start:false},
+  {name:"ポンプ", price:140, start:false},
+  {name:"車輪", price:70, start:false},
+  {name:"タイマー", price:100, start:false}
+];
+
+const missions = [
+  {title:"暗い場所を明るくする装置を作れ！", need:["電池","LED","スイッチ"], reward:80, hint:"光る部品と、電気を流すものが必要そう。"},
+  {title:"ボタンを押したら音が鳴る装置を作れ！", need:["電池","スイッチ","ブザー"], reward:100, hint:"音を出す部品と、押す部品が必要。"},
+  {title:"ミニ扇風機を作れ！", need:["電池","モーター","ファン","スイッチ"], reward:120, hint:"回す部品と風を送る部品が必要。"},
+  {title:"人が来たら自動で光る装置を作れ！", need:["電池","LED","人感センサー"], reward:140, hint:"人を見つけるセンサーが大事。"},
+  {title:"近づいたら警告音が鳴る装置を作れ！", need:["電池","ブザー","超音波センサー"], reward:150, hint:"距離を測る部品が必要。"},
+  {title:"自動で開くドアを作れ！", need:["電池","人感センサー","サーボモーター","Arduino"], reward:200, hint:"人を見つけて、モーターで開ける。"},
+  {title:"魚の自動えさやり機を作れ！", need:["電池","サーボモーター","Arduino","タイマー"], reward:220, hint:"時間になったら少しだけ動かす。"},
+  {title:"暑くなったら風を出す装置を作れ！", need:["電池","温度センサー","ファン","Arduino"], reward:200, hint:"温度を調べて、風を出す。"},
+  {title:"水がたまったら知らせる装置を作れ！", need:["電池","水位センサー","ブザー","Arduino"], reward:210, hint:"水の高さを調べて音で知らせる。"},
+  {title:"明るくなったら自動で消えるライトを作れ！", need:["電池","LED","光センサー","Arduino"], reward:190, hint:"明るさを調べる部品が必要。"},
+  {title:"手で触ったら光るパネルを作れ！", need:["電池","LED","タッチセンサー","Arduino"], reward:200, hint:"触ったことを調べるセンサーが必要。"},
+  {title:"水やり装置を作れ！", need:["電池","ポンプ","水位センサー","Arduino"], reward:240, hint:"水を動かす部品が必要。"},
+  {title:"温度を表示する装置を作れ！", need:["電池","温度センサー","OLED","Arduino"], reward:230, hint:"調べた温度を画面に出す。"},
+  {title:"自動で走る小型ロボットを作れ！", need:["電池","モーター","車輪","Arduino"], reward:230, hint:"走るには回す部品と車輪が必要。"},
+  {title:"障害物をよける車を作れ！", need:["電池","モーター","車輪","超音波センサー","Arduino"], reward:280, hint:"距離を見て曲がる。"},
+  {title:"防犯アラームを作れ！", need:["電池","人感センサー","ブザー","Arduino"], reward:210, hint:"人を見つけたら音を鳴らす。"},
+  {title:"温度が高いと警告する装置を作れ！", need:["電池","温度センサー","ブザー","OLED","Arduino"], reward:270, hint:"温度を測って、表示と音で知らせる。"},
+  {title:"夜になると自動で光る庭ライトを作れ！", need:["電池","光センサー","LED","Arduino"], reward:200, hint:"暗さを調べて光らせる。"},
+  {title:"水が少なくなったら知らせる植木鉢を作れ！", need:["電池","水位センサー","LED","ブザー","Arduino"], reward:270, hint:"水の量を見て、光と音で知らせる。"},
+  {title:"タッチ式の呼び出しボタンを作れ！", need:["電池","タッチセンサー","ブザー","Arduino"], reward:200, hint:"触ったら音で知らせる。"},
+  {title:"自動で点滅する警告ライトを作れ！", need:["電池","LED","タイマー","Arduino"], reward:190, hint:"時間に合わせて光らせる。"},
+  {title:"近づいたら画面に注意と表示する装置を作れ！", need:["電池","超音波センサー","OLED","Arduino"], reward:230, hint:"距離を測って画面に出す。"},
+  {title:"人が来たら扇風機が回る装置を作れ！", need:["電池","人感センサー","ファン","Arduino"], reward:220, hint:"人を見つけて風を出す。"},
+  {title:"時間になったらブザーが鳴るタイマーを作れ！", need:["電池","タイマー","ブザー"], reward:140, hint:"時間を数えて音を鳴らす。"},
+  {title:"光を当てると音が鳴る実験装置を作れ！", need:["電池","光センサー","ブザー","Arduino"], reward:200, hint:"明るさを調べて音を出す。"}
+];
+
+let money = 100;
+let totalScore = 0;
+let missionIndex = 0;
+let selected = [];
+let alreadyChecked = false;
+let ownedParts = partsList.filter(p=>p.start).map(p=>p.name);
+
+const partsDiv = document.getElementById("parts");
+const shopDiv = document.getElementById("shop");
+const missionDiv = document.getElementById("mission");
+const hintDiv = document.getElementById("hint");
+const resultDiv = document.getElementById("result");
+const stageSpan = document.getElementById("stage");
+const totalScoreSpan = document.getElementById("totalScore");
+const moneySpan = document.getElementById("money");
+
+function saveGame(){
+  const data = {money,totalScore,missionIndex,ownedParts};
+  localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+}
+
+function loadGame(){
+  const raw = localStorage.getItem(SAVE_KEY);
+  if(!raw) return;
+
+  try{
+    const data = JSON.parse(raw);
+    money = data.money ?? 100;
+    totalScore = data.totalScore ?? 0;
+    missionIndex = data.missionIndex ?? 0;
+    ownedParts = data.ownedParts ?? partsList.filter(p=>p.start).map(p=>p.name);
+
+    if(missionIndex >= missions.length){
+      missionIndex = missions.length - 1;
+    }
+  }catch(e){
+    console.log("セーブデータ読み込み失敗", e);
+  }
+}
+
+function resetGame(){
+  if(!confirm("本当に最初からやり直しますか？")) return;
+
+  localStorage.removeItem(SAVE_KEY);
+  money = 100;
+  totalScore = 0;
+  missionIndex = 0;
+  selected = [];
+  alreadyChecked = false;
+  ownedParts = partsList.filter(p=>p.start).map(p=>p.name);
+
+  showMission();
+}
+
+function updateStatus(){
+  moneySpan.textContent = money;
+  totalScoreSpan.textContent = totalScore;
+  stageSpan.textContent = missionIndex + 1;
+}
+
+function initParts(){
+  partsDiv.innerHTML = "";
+
+  partsList.forEach(part=>{
+    const div = document.createElement("div");
+    div.className = "part";
+
+    if(!ownedParts.includes(part.name)){
+      div.classList.add("locked");
+      div.textContent = part.name + " 🔒";
+    }else{
+      div.textContent = part.name;
+      div.onclick = ()=>togglePart(part.name, div);
+    }
+
+    partsDiv.appendChild(div);
+  });
+}
+
+function initShop(){
+  shopDiv.innerHTML = "";
+
+  partsList.forEach(part=>{
+    if(ownedParts.includes(part.name)) return;
+
+    const div = document.createElement("div");
+    div.className = "part";
+    div.innerHTML = `
+      ${part.name}<br>
+      <span class="small">${part.price}円</span>
+      <button class="buy" onclick="buyPart('${part.name}')">買う</button>
+    `;
+    shopDiv.appendChild(div);
+  });
+
+  if(shopDiv.innerHTML === ""){
+    shopDiv.innerHTML = "すべてのパーツを購入済みです。";
+  }
+}
+
+function buyPart(name){
+  const part = partsList.find(p=>p.name === name);
+
+  if(money < part.price){
+    alert("お金が足りません！");
+    return;
+  }
+
+  money -= part.price;
+  ownedParts.push(name);
+
+  selected = selected.filter(p=>ownedParts.includes(p));
+
+  updateStatus();
+  initParts();
+  initShop();
+  saveGame();
+}
+
+function togglePart(part, div){
+  if(alreadyChecked) return;
+
+  if(selected.includes(part)){
+    selected = selected.filter(p=>p !== part);
+    div.classList.remove("selected");
+  }else{
+    selected.push(part);
+    div.classList.add("selected");
+  }
+}
+
+function showMission(){
+  const m = missions[missionIndex];
+
+  missionDiv.textContent = m.title;
+  hintDiv.textContent = "ヒント：" + m.hint + " / 最大報酬：" + m.reward + "円";
+  resultDiv.textContent = "まだ発明していません。";
+
+  selected = [];
+  alreadyChecked = false;
+
+  updateStatus();
+  initParts();
+  initShop();
+  saveGame();
+}
+
+function checkAnswer(){
+  if(alreadyChecked){
+    resultDiv.innerHTML = "もう採点済みです。次の依頼へ進んでください。";
+    return;
+  }
+
+  const mission = missions[missionIndex];
+  const need = mission.need;
+
+  let correct = 0;
+  let missing = [];
+  let extra = [];
+
+  need.forEach(part=>{
+    if(selected.includes(part)){
+      correct++;
+    }else{
+      missing.push(part);
+    }
+  });
+
+  selected.forEach(part=>{
+    if(!need.includes(part)){
+      extra.push(part);
+    }
+  });
+
+  let score = Math.round((correct / need.length) * 100);
+  score -= extra.length * 10;
+  if(score < 0) score = 0;
+
+  let rewardMoney = Math.round(mission.reward * (score / 100));
+
+  totalScore += score;
+  money += rewardMoney;
+  alreadyChecked = true;
+
+  let rank = "";
+  if(score >= 90) rank = "大成功！";
+  else if(score >= 60) rank = "まあまあ成功！";
+  else if(score >= 30) rank = "少しだけ成功…";
+  else rank = "失敗…";
+
+  resultDiv.innerHTML = `
+    <div class="${score >= 60 ? "good" : "bad"}">${rank}</div>
+    点数：${score}点<br>
+    報酬：${rewardMoney}円<br>
+    必要な部品：${need.join("、")}<br>
+    選んだ部品：${selected.length ? selected.join("、") : "なし"}<br>
+    足りない部品：${missing.length ? missing.join("、") : "なし"}<br>
+    余計な部品：${extra.length ? extra.join("、") : "なし"}
+  `;
+
+  updateStatus();
+  saveGame();
+}
+
+function nextMission(){
+  if(!alreadyChecked){
+    resultDiv.innerHTML = "先に完成ボタンを押して採点してください。";
+    return;
+  }
+
+  missionIndex++;
+
+  if(missionIndex >= missions.length){
+    missionDiv.textContent = "すべての依頼をクリア！";
+    hintDiv.textContent = "";
+    resultDiv.innerHTML = `
+      <div class="good">ゲームクリア！</div>
+      最終スコア：${totalScore}点<br>
+      残ったお金：${money}円<br>
+      最初から遊ぶ場合は「最初からやり直す」を押してください。
+    `;
+    saveGame();
+    return;
+  }
+
+  showMission();
+}
+
+loadGame();
+showMission();
+</script>
+
+</body>
+</html>
