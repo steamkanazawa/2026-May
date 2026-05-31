@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>CUTE SLIME DESERT</title>
+<style>
+html,body{margin:0;overflow:hidden;background:#1b1208;touch-action:none;font-family:monospace}
+canvas{display:block;image-rendering:pixelated}
+#ui{position:fixed;left:10px;top:10px;color:white;font-size:18px;font-weight:bold;text-shadow:3px 3px #000}
+#menu{position:fixed;inset:0;background:rgba(0,0,0,.65);color:white;display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center}
+button{font-size:22px;padding:12px 30px;border:0;background:#ffd43b;font-weight:bold}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="ui">
+ SCORE <span id="score">0</span><br>
+ HIGH <span id="high">0</span><br>
+ LIFE <span id="hp">1</span>
+</div>
+
+<div id="menu">
+  <h1>CUTE SLIME DESERT</h1>
+  <p>荒野でコインを集めろ<br>巨大スライムに注意！</p>
+  <p>PC：WASD / 矢印キー<br>スマホ：ドラッグ移動</p>
+  <button onclick="startGame()">START</button>
+</div>
+
+<script>
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+const scoreEl=document.getElementById("score");
+const highEl=document.getElementById("high");
+const hpEl=document.getElementById("hp");
+const menu=document.getElementById("menu");
+
+let W,H;
+let player,enemies,coins,rocks,cactus,particles,sand;
+let score=0,hp=1,frame=0,running=false;
+let high=localStorage.cuteSlimeDesertHigh||0;
+highEl.textContent=high;
+
+let keys={},touch=false,tx=0,ty=0;
+
+function resize(){
+  W=canvas.width=innerWidth;
+  H=canvas.height=innerHeight;
+  ctx.imageSmoothingEnabled=false;
+}
+addEventListener("resize",resize);
+resize();
+
+addEventListener("keydown",e=>keys[e.key]=true);
+addEventListener("keyup",e=>keys[e.key]=false);
+
+canvas.addEventListener("pointerdown",e=>{touch=true;tx=e.clientX;ty=e.clientY});
+canvas.addEventListener("pointermove",e=>{if(touch){tx=e.clientX;ty=e.clientY}});
+canvas.addEventListener("pointerup",()=>touch=false);
+
+function rand(a,b){return a+Math.random()*(b-a)}
+function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
+function R(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(Math.floor(x),Math.floor(y),Math.floor(w),Math.floor(h))}
+function inside(o){return o.x>o.r&&o.x<W-o.r&&o.y>o.r&&o.y<H-o.r}
+
+function startGame(){
+  player={x:W/2,y:H/2,r:13,speed:4.1};
+  enemies=[];coins=[];rocks=[];cactus=[];particles=[];sand=[];
+  score=0;hp=1;frame=0;
+  scoreEl.textContent=0;
+  hpEl.textContent=1;
+
+  for(let i=0;i<12;i++)spawnCoin();
+  for(let i=0;i<16;i++)spawnRock();
+  for(let i=0;i<8;i++)spawnCactus();
+  for(let i=0;i<11;i++)spawnEnemy();
+  for(let i=0;i<110;i++)spawnSand(true);
+
+  menu.style.display="none";
+  running=true;
+  loop();
+}
+
+function gameOver(){
+  running=false;
+  if(score>high){high=score;localStorage.cuteSlimeDesertHigh=high}
+  highEl.textContent=high;
+  menu.style.display="flex";
+  menu.querySelector("h1").textContent="GAME OVER";
+  menu.querySelector("p").innerHTML="SCORE "+score+"<br>HIGH "+high+"<br><br>もう一回！";
+  menu.querySelector("button").textContent="RETRY";
+}
+
+function safePoint(){
+  for(let i=0;i<100;i++){
+    let p={x:rand(35,W-35),y:rand(55,H-35)};
+    if(Math.hypot(p.x-player.x,p.y-player.y)>100)return p;
+  }
+  return{x:W/2,y:H/2};
+}
+
+function spawnCoin(){let p=safePoint();coins.push({x:p.x,y:p.y,r:8})}
+function spawnRock(){let p=safePoint();rocks.push({x:p.x,y:p.y,w:rand(30,55),h:rand(22,40)})}
+function spawnCactus(){let p=safePoint();cactus.push({x:p.x,y:p.y,r:14,hit:0})}
+
+function spawnEnemy(){
+  let t=Math.random();
+  let type,r,hp,speed,color;
+
+  if(t<.30){
+    type="normal"; r=13; hp=2; speed=1.55; color="#58d85f";
+  }else if(t<.53){
+    type="dash"; r=13; hp=2; speed=1.05; color="#ff6666";
+  }else if(t<.73){
+    type="fast"; r=10; hp=1; speed=2.65; color="#37c7ff";
+  }else if(t<.92){
+    type="big"; r=88; hp=24; speed=.45; color="#a76bff";
+  }else{
+    type="giant"; r=120; hp=40; speed=.32; color="#7b54e8";
+  }
+
+  let side=Math.floor(Math.random()*4);
+  let margin=r+10;
+  let x,y;
+
+  if(side===0){x=rand(margin,W-margin);y=margin}
+  if(side===1){x=rand(margin,W-margin);y=H-margin}
+  if(side===2){x=margin;y=rand(margin,H-margin)}
+  if(side===3){x=W-margin;y=rand(margin,H-margin)}
+
+  let enemy={type,x,y,r,hp,speed,color};
+
+  if(type==="dash"){
+    enemy.wait=60;
+    enemy.dashTime=0;
+    enemy.vx=0;
+    enemy.vy=0;
+  }
+
+  enemies.push(enemy);
+}
+
+function spawnSand(first=false){
+  sand.push({
+    x:first?rand(0,W):rand(-100,-10),
+    y:rand(0,H),
+    vx:rand(3,9),
+    vy:rand(-.3,.7),
+    w:rand(12,38),
+    h:rand(2,4),
+    a:rand(.13,.32)
+  });
+}
+
+function hitRock(o){
+  for(let r of rocks){
+    let cx=Math.max(r.x-r.w/2,Math.min(o.x,r.x+r.w/2));
+    let cy=Math.max(r.y-r.h/2,Math.min(o.y,r.y+r.h/2));
+    if(Math.hypot(o.x-cx,o.y-cy)<o.r)return true;
+  }
+  return false;
+}
+
+function hitCactus(o){
+  for(let c of cactus){
+    if(dist(o,c)<o.r+c.r)return c;
+  }
+  return null;
+}
+
+function burst(x,y,c){
+  for(let i=0;i<14;i++)particles.push({x,y,vx:rand(-4,4),vy:rand(-4,4),life:24,color:c});
+}
+
+function damage(){
+  hp=0;
+  hpEl.textContent=0;
+  burst(player.x,player.y,"#fff");
+  gameOver();
+}
+
+function moveObj(o,dx,dy,isEnemy=false){
+  o.x+=dx;
+  if(!inside(o)||hitRock(o))o.x-=dx;
+
+  o.y+=dy;
+  if(!inside(o)||hitRock(o))o.y-=dy;
+
+  let ca=hitCactus(o);
+  if(ca){
+    o.x-=dx;
+    o.y-=dy;
+    ca.hit=8;
+    if(isEnemy)o.hp-=o.type==="dash"?2:1;
+    else damage();
+  }
+}
+
+function update(){
+  frame++;
+
+  let dx=0,dy=0;
+  if(keys.ArrowUp||keys.w)dy--;
+  if(keys.ArrowDown||keys.s)dy++;
+  if(keys.ArrowLeft||keys.a)dx--;
+  if(keys.ArrowRight||keys.d)dx++;
+
+  if(touch){
+    dx=tx-player.x;
+    dy=ty-player.y;
+    let d=Math.hypot(dx,dy);
+    if(d>5){dx/=d;dy/=d}else{dx=0;dy=0}
+  }
+
+  if(dx||dy){
+    let d=Math.hypot(dx,dy);
+    moveObj(player,dx/d*player.speed,dy/d*player.speed,false);
+  }
+
+  for(let e of enemies){
+    let dx=player.x-e.x;
+    let dy=player.y-e.y;
+    let d=Math.hypot(dx,dy)||1;
+
+    if(e.type==="dash"){
+      e.wait--;
+      if(e.wait<=0&&e.dashTime<=0){
+        e.vx=dx/d*6.8;
+        e.vy=dy/d*6.8;
+        e.dashTime=27;
+        e.wait=100;
+      }
+      if(e.dashTime>0){
+        moveObj(e,e.vx,e.vy,true);
+        e.dashTime--;
+      }else{
+        moveObj(e,dx/d*e.speed,dy/d*e.speed,true);
+      }
+    }else{
+      moveObj(e,dx/d*e.speed,dy/d*e.speed,true);
+    }
+
+    if(dist(player,e)<player.r+e.r)damage();
+  }
+
+  for(let i=enemies.length-1;i>=0;i--){
+    if(enemies[i].hp<=0){
+      burst(enemies[i].x,enemies[i].y,"#ffe066");
+      score+=20;
+      scoreEl.textContent=score;
+      enemies.splice(i,1);
+    }
+  }
+
+  for(let i=coins.length-1;i>=0;i--){
+    if(dist(player,coins[i])<player.r+coins[i].r){
+      score+=10;
+      scoreEl.textContent=score;
+      burst(coins[i].x,coins[i].y,"#ffd43b");
+      coins.splice(i,1);
+      spawnCoin();
+    }
+  }
+
+  if(frame%100===0)spawnEnemy();
+
+  for(let c of cactus)if(c.hit>0)c.hit--;
+
+  for(let i=particles.length-1;i>=0;i--){
+    let p=particles[i];
+    p.x+=p.vx;p.y+=p.vy;p.life--;
+    if(p.life<=0)particles.splice(i,1);
+  }
+
+  for(let i=sand.length-1;i>=0;i--){
+    let s=sand[i];
+    s.x+=s.vx;s.y+=s.vy;
+    if(s.x>W+100||s.y<-20||s.y>H+20){
+      sand.splice(i,1);
+      spawnSand(false);
+    }
+  }
+}
+
+function drawBg(){
+  R(0,0,W,H,"#9a6334");
+  let tile=24;
+  for(let y=0;y<H;y+=tile){
+    for(let x=0;x<W;x+=tile){
+      let n=(x*13+y*7+frame)%97;
+      R(x,y,tile,tile,n<48?"#d49a50":"#c88943");
+      if(n%11===0)R(x+7,y+9,5,3,"#9a612e");
+      if(n%17===0)R(x+15,y+16,6,3,"#e2ad68");
+    }
+  }
+  R(0,0,W,8,"#6b3f20");
+  R(0,H-8,W,8,"#6b3f20");
+  R(0,0,8,H,"#6b3f20");
+  R(W-8,0,8,H,"#6b3f20");
+}
+
+function drawCoin(c){
+  R(c.x-8,c.y-8,16,16,"#c98200");
+  R(c.x-5,c.y-5,10,10,"#ffd43b");
+  R(c.x-2,c.y-2,4,4,"#fff3bf");
+}
+
+function drawRock(r){
+  R(r.x-r.w/2,r.y-r.h/2,r.w,r.h,"#5d5043");
+  R(r.x-r.w/2+5,r.y-r.h/2+5,r.w-10,6,"#84715c");
+  R(r.x-r.w/2,r.y+r.h/2-5,r.w,5,"#332b24");
+}
+
+function drawCactus(c){
+  let x=c.x,y=c.y,col=c.hit>0?"#7dff7a":"#2d9b45";
+  R(x-6,y-21,12,38,col);
+  R(x-12,y-7,9,17,col);
+  R(x+5,y-3,11,8,col);
+  R(x+7,y-14,8,21,col);
+  R(x-4,y-27,8,6,"#ff6b9a");
+  R(x-10,y+15,24,5,"#8a5a2b");
+}
+
+function slime(x,y,r,c,type="normal",isPlayer=false){
+  R(x-r*.9,y+r*.42,r*1.8,5,"rgba(0,0,0,.25)");
+  R(x-r*.85,y-r*.35,r*1.7,r*.95,c);
+  R(x-r*.70,y-r*.62,r*1.4,r*.35,c);
+  R(x-r*.48,y-r*.86,r*.96,r*.27,c);
+  R(x-r*.25,y-r*1.03,r*.50,r*.18,c);
+
+  R(x-r*.78,y+r*.43,r*1.56,3,"rgba(0,0,0,.32)");
+  R(x-r*.85,y-r*.18,3,r*.55,"rgba(0,0,0,.22)");
+  R(x+r*.85-3,y-r*.18,3,r*.55,"rgba(0,0,0,.22)");
+
+  R(x-r*.55,y-r*.50,r*.40,r*.22,"rgba(255,255,255,.48)");
+  R(x-r*.26,y-r*.70,r*.34,r*.16,"rgba(255,255,255,.34)");
+  R(x-r*.68,y-r*.12,r*.22,r*.14,"rgba(255,255,255,.22)");
+
+  R(x-r*.42,y-r*.10,5,8,"#fff");
+  R(x+r*.22,y-r*.10,5,8,"#fff");
+  R(x-r*.35,y-r*.02,2,2,"#222");
+  R(x+r*.29,y-r*.02,2,2,"#222");
+
+  R(x-r*.14,y+r*.23,r*.28,2,"#7a3a3a");
+
+  if(isPlayer){
+    R(x-r*.65,y-r-8,r*1.3,3,"#f0ffff");
+  }
+
+  if(type==="dash"){
+    R(x-r-22,y-5,17,4,"#ffe0e0");
+    R(x-r-16,y+2,12,3,"#fff");
+    R(x-r-9,y+9,7,3,"#ffd0d0");
+  }
+
+  if(type==="giant"||type==="big"){
+    R(x-r*.18,y+r*.30,r*.36,4,"#32164d");
+  }
+}
+
+function drawSand(){
+  for(let s of sand){
+    ctx.fillStyle=`rgba(255,230,160,${s.a})`;
+    ctx.fillRect(Math.floor(s.x),Math.floor(s.y),Math.floor(s.w),Math.floor(s.h));
+  }
+  ctx.fillStyle="rgba(214,157,78,.10)";
+  ctx.fillRect(0,0,W,H);
+}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  drawBg();
+
+  for(let r of rocks)drawRock(r);
+  for(let c of cactus)drawCactus(c);
+  for(let c of coins)drawCoin(c);
+  for(let e of enemies)slime(e.x,e.y,e.r,e.color,e.type,false);
+  for(let p of particles)R(p.x,p.y,5,5,p.color);
+
+  slime(player.x,player.y,player.r,"#c9f8ff","normal",true);
+  drawSand();
+}
+
+function loop(){
+  if(!running)return;
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+</script>
+</body>
+</html>
