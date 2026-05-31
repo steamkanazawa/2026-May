@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>料理キャッチキッチン</title>
+<style>
+body{margin:0;background:#fff1c7;font-family:sans-serif;text-align:center}
+#main{display:flex;justify-content:center;align-items:flex-start;gap:12px}
+.panel{width:220px;background:white;border:3px solid #333;border-radius:14px;padding:10px;margin-top:10px}
+canvas{background:linear-gradient(#bdefff,#fff7dd);border:4px solid #333;border-radius:16px;margin-top:10px}
+button{font-size:30px;padding:18px 45px;margin:8px;border:none;border-radius:18px;background:#ffb347;font-weight:bold}
+.controls button{background:#7ec8ff;font-size:32px;padding:20px 70px}
+table{width:100%;border-collapse:collapse}
+td,th{border:1px solid #333;padding:5px;font-size:14px}
+.plate-row td{font-size:18px;font-weight:bold;background:#eaf7ff}
+ol{text-align:left}
+</style>
+</head>
+<body>
+
+<h2>料理キャッチキッチン</h2>
+<button onclick="startGame()">スタート</button>
+
+<div id="main">
+<div class="panel">
+<h3>ベストスコア</h3>
+<ol id="ranking"></ol>
+</div>
+
+<canvas id="game" width="900" height="540"></canvas>
+
+<div class="panel">
+<h3>料理スコア表</h3>
+<table>
+<tr><th>料理</th><th>点数</th></tr>
+<tr><td>🍙 おにぎり</td><td>10</td></tr>
+<tr><td>🍎 りんご</td><td>15</td></tr>
+<tr><td>🍔 ハンバーガー</td><td>30</td></tr>
+<tr><td>🍕 ピザ</td><td>40</td></tr>
+<tr><td>🍤 エビフライ</td><td>50</td></tr>
+<tr><td>🍰 ケーキ</td><td>60</td></tr>
+<tr><td>🍣 すし</td><td>80</td></tr>
+<tr><td>🥩 ステーキ</td><td>100</td></tr>
+<tr><td>👑 高級料理</td><td>600</td></tr>
+<tr class="plate-row"><td>🍽️ 皿</td><td>最大取得数+1<br>皿巨大化</td></tr>
+<tr><td>🍬 キャンディー</td><td>10秒加速</td></tr>
+</table>
+</div>
+</div>
+
+<div class="controls">
+<button onmousedown="btn.left=true" onmouseup="btn.left=false" ontouchstart="btn.left=true" ontouchend="btn.left=false">← 左</button>
+<button onmousedown="btn.right=true" onmouseup="btn.right=false" ontouchstart="btn.right=true" ontouchend="btn.right=false">右 →</button>
+</div>
+
+<script>
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+const rankingEl=document.getElementById("ranking");
+
+let player,items,score,gameOver,keys,btn,kitchen,startTime;
+let spawnTimer=0,timeLimit=60;
+let candyDropped=false,plateDropped=0,specialDropped=false,saved=false;
+let notice="",noticeTimer=0;
+
+const foods=[
+ {emoji:"🍙",name:"おにぎり",price:10},
+ {emoji:"🍎",name:"りんご",price:15},
+ {emoji:"🍔",name:"ハンバーガー",price:30},
+ {emoji:"🍕",name:"ピザ",price:40},
+ {emoji:"🍤",name:"エビフライ",price:50},
+ {emoji:"🍰",name:"ケーキ",price:60},
+ {emoji:"🍣",name:"すし",price:80},
+ {emoji:"🥩",name:"ステーキ",price:100}
+];
+
+function chooseFood(){
+ const elapsed=(Date.now()-startTime)/1000;
+ const progress=Math.min(1,elapsed/timeLimit);
+
+ let list;
+ if(progress<0.35){
+  list=foods;
+ }else if(progress<0.7){
+  list=[
+   ...foods,
+   foods[2],foods[3],foods[4],foods[5],
+   foods[6],foods[7]
+  ];
+ }else{
+  list=[
+   foods[2],foods[3],foods[4],foods[5],
+   foods[5],foods[6],foods[6],
+   foods[7],foods[7],foods[7]
+  ];
+ }
+ return list[Math.floor(Math.random()*list.length)];
+}
+
+function showNotice(t){
+ notice=t;
+ noticeTimer=150;
+}
+
+function loadRanking(){
+ const data=JSON.parse(localStorage.getItem("cookRanking")||"[]");
+ rankingEl.innerHTML="";
+ if(data.length===0){
+  rankingEl.innerHTML="<li>まだなし</li>";
+  return;
+ }
+ data.slice(0,10).forEach(s=>{
+  const li=document.createElement("li");
+  li.textContent=s+"点";
+  rankingEl.appendChild(li);
+ });
+}
+
+function saveScore(){
+ if(saved)return;
+ saved=true;
+ let data=JSON.parse(localStorage.getItem("cookRanking")||"[]");
+ const before=JSON.stringify(data);
+ data.push(score);
+ data.sort((a,b)=>b-a);
+ data=data.slice(0,10);
+ localStorage.setItem("cookRanking",JSON.stringify(data));
+ loadRanking();
+ if(JSON.stringify(data)!==before) showNotice("ランキング更新！");
+}
+
+function startGame(){
+ player={
+  x:420,y:420,w:55,h:75,
+  speed:7,baseSpeed:7,
+  capacity:1,carrying:[],
+  candyUntil:0,
+  plateScale:1
+ };
+ kitchen={x:330,y:420,w:240,h:105};
+ items=[];
+ score=0;
+ gameOver=false;
+ saved=false;
+ keys={};
+ btn={left:false,right:false};
+ spawnTimer=0;
+ startTime=Date.now();
+ candyDropped=false;
+ plateDropped=0;
+ specialDropped=false;
+ notice="";
+ noticeTimer=0;
+ loop();
+}
+
+document.addEventListener("keydown",e=>{
+ keys[e.key]=true;
+ if((e.key==="Enter"||e.key===" ") && gameOver) startGame();
+});
+document.addEventListener("keyup",e=>keys[e.key]=false);
+
+function spawnItem(){
+ const elapsed=(Date.now()-startTime)/1000;
+
+ if(!specialDropped && elapsed>=48){
+  specialDropped=true;
+
+  const fromLeft=Math.random()<0.5;
+  const edgeX=fromLeft
+    ? Math.random()*160+20
+    : canvas.width-200+Math.random()*160;
+
+  items.push({
+   kind:"food",
+   special:true,
+   emoji:"👑",
+   name:"高級フルコース",
+   price:600,
+   x:edgeX,
+   y:-50,
+   speed:5.6,
+   big:1.7
+  });
+  return;
+ }
+
+ if(plateDropped<3 && player.capacity<3){
+  let chance=plateDropped===0?0.13:plateDropped===1?0.11:0.09;
+  if(Math.random()<chance){
+   plateDropped++;
+   items.push({
+    kind:"plate",
+    emoji:"🍽️",
+    x:Math.random()*820+40,
+    y:-45,
+    speed:2.8,
+    big:1.45
+   });
+   return;
+  }
+ }
+
+ if(!candyDropped && Math.random()<0.07){
+  candyDropped=true;
+  items.push({
+   kind:"candy",
+   emoji:"🍬",
+   x:Math.random()*820+40,
+   y:-45,
+   speed:2.9,
+   big:1.45
+  });
+  return;
+ }
+
+ const f=chooseFood();
+ items.push({
+  kind:"food",
+  special:false,
+  emoji:f.emoji,
+  name:f.name,
+  price:f.price,
+  x:Math.random()*820+40,
+  y:-40,
+  speed:2.4+Math.random()*2.5,
+  big:1
+ });
+}
+
+function update(){
+ if(gameOver)return;
+
+ const now=Date.now();
+ const elapsed=(now-startTime)/1000;
+
+ if(elapsed>=timeLimit){
+  gameOver=true;
+  saveScore();
+  return;
+ }
+
+ const candyActive=now<player.candyUntil;
+ player.speed=candyActive?player.baseSpeed+4:player.baseSpeed;
+
+ if(keys["ArrowLeft"]||keys["a"]||btn.left)player.x-=player.speed;
+ if(keys["ArrowRight"]||keys["d"]||btn.right)player.x+=player.speed;
+
+ player.x=Math.max(0,Math.min(canvas.width-player.w,player.x));
+
+ spawnTimer++;
+ if(spawnTimer>36){
+  spawnItem();
+  spawnTimer=0;
+ }
+
+ for(let i=items.length-1;i>=0;i--){
+  const it=items[i];
+  it.y+=it.speed;
+
+  const catchRange=18+player.plateScale*12;
+
+  const hit=
+   it.x>player.x-catchRange &&
+   it.x<player.x+player.w+catchRange &&
+   it.y+30>player.y-24 &&
+   it.y<player.y+35;
+
+  if(hit){
+   if(it.kind==="food"&&player.carrying.length<player.capacity){
+    player.carrying.push(it);
+    items.splice(i,1);
+   }else if(it.kind==="plate"){
+    if(player.capacity<3)player.capacity++;
+    player.plateScale=Math.min(1.55,player.plateScale+0.25);
+    items.splice(i,1);
+   }else if(it.kind==="candy"){
+    player.candyUntil=Date.now()+10000;
+    items.splice(i,1);
+   }
+   continue;
+  }
+
+  if(it.y>canvas.height)items.splice(i,1);
+ }
+
+ const inKitchen=
+  player.carrying.length>0 &&
+  player.x+player.w>kitchen.x &&
+  player.x<kitchen.x+kitchen.w;
+
+ if(inKitchen){
+  for(const f of player.carrying)score+=f.price;
+  player.carrying=[];
+ }
+
+ if(noticeTimer>0)noticeTimer--;
+}
+
+function drawGlowEmoji(it){
+ const pulse=1+Math.sin(Date.now()/120)*0.08;
+ const size=34*(it.big||1)*pulse;
+
+ if(it.kind==="plate"||it.kind==="candy"||it.special){
+  ctx.save();
+  ctx.shadowColor=it.special?"gold":it.kind==="candy"?"#ff4fd8":"#8fd3ff";
+  ctx.shadowBlur=25;
+  ctx.font=size+"px sans-serif";
+  ctx.fillText(it.emoji,it.x,it.y);
+  ctx.restore();
+
+  ctx.strokeStyle=it.special?"gold":it.kind==="candy"?"#ff4fd8":"#4aa3ff";
+  ctx.lineWidth=3;
+  ctx.beginPath();
+  ctx.arc(it.x+20,it.y-15,28*(it.big||1),0,Math.PI*2);
+  ctx.stroke();
+ }else{
+  ctx.font="34px sans-serif";
+  ctx.fillText(it.emoji,it.x,it.y);
+ }
+}
+
+function drawKitchen(){
+ ctx.fillStyle="#d7d7d7";
+ ctx.fillRect(kitchen.x-20,kitchen.y-70,kitchen.w+40,40);
+
+ ctx.fillStyle="#8b5a36";
+ ctx.fillRect(kitchen.x,kitchen.y,kitchen.w,kitchen.h);
+
+ ctx.fillStyle="#dfe6e9";
+ ctx.fillRect(kitchen.x+18,kitchen.y+15,80,38);
+
+ ctx.fillStyle="#7f8c8d";
+ ctx.beginPath();
+ ctx.arc(kitchen.x+58,kitchen.y+34,20,0,Math.PI*2);
+ ctx.fill();
+
+ ctx.fillStyle="#333";
+ ctx.fillRect(kitchen.x+120,kitchen.y+18,90,40);
+
+ ctx.fillStyle="#ff6b35";
+ ctx.beginPath();
+ ctx.arc(kitchen.x+145,kitchen.y+38,9,0,Math.PI*2);
+ ctx.arc(kitchen.x+185,kitchen.y+38,9,0,Math.PI*2);
+ ctx.fill();
+
+ ctx.fillStyle="#f1c40f";
+ ctx.fillRect(kitchen.x+15,kitchen.y+75,55,22);
+ ctx.fillRect(kitchen.x+95,kitchen.y+75,55,22);
+ ctx.fillRect(kitchen.x+175,kitchen.y+75,55,22);
+
+ ctx.fillStyle="#fff";
+ ctx.fillRect(kitchen.x+30,kitchen.y-50,180,35);
+
+ ctx.fillStyle="#333";
+ ctx.font="24px sans-serif";
+ ctx.fillText("KITCHEN",kitchen.x+72,kitchen.y-25);
+}
+
+function drawPlayer(){
+ const candyActive=Date.now()<player.candyUntil;
+
+ ctx.fillStyle=candyActive?"#ff7ad9":"#ffcf66";
+ ctx.fillRect(player.x+13,player.y+25,30,38);
+
+ ctx.beginPath();
+ ctx.arc(player.x+28,player.y+15,17,0,Math.PI*2);
+ ctx.fillStyle="#ffd6a5";
+ ctx.fill();
+
+ ctx.fillStyle="#111";
+ ctx.fillRect(player.x+20,player.y+10,4,4);
+ ctx.fillRect(player.x+32,player.y+10,4,4);
+
+ ctx.fillStyle=candyActive?"#ffe66d":"#fff";
+ ctx.beginPath();
+ ctx.ellipse(player.x+28,player.y,42*player.plateScale,11*player.plateScale,0,0,Math.PI*2);
+ ctx.fill();
+ ctx.strokeStyle="#333";
+ ctx.stroke();
+
+ ctx.font="25px sans-serif";
+ for(let i=0;i<player.carrying.length;i++){
+  ctx.fillText(player.carrying[i].emoji,player.x+2+i*22,player.y-15);
+ }
+
+ if(candyActive){
+  const ratio=(player.candyUntil-Date.now())/10000;
+  ctx.fillStyle="#ddd";
+  ctx.fillRect(player.x-15,player.y-50,90,10);
+  ctx.fillStyle="#ff5ac8";
+  ctx.fillRect(player.x-15,player.y-50,90*ratio,10);
+  ctx.strokeStyle="#333";
+  ctx.strokeRect(player.x-15,player.y-50,90,10);
+ }
+}
+
+function draw(){
+ ctx.clearRect(0,0,canvas.width,canvas.height);
+
+ drawKitchen();
+
+ for(const it of items){
+  drawGlowEmoji(it);
+  if(it.kind==="food"){
+   ctx.fillStyle=it.special?"#d35400":"#111";
+   ctx.font="15px sans-serif";
+   ctx.fillText("+"+it.price,it.x+5,it.y+18);
+  }
+ }
+
+ drawPlayer();
+
+ const remain=Math.max(0,timeLimit-Math.floor((Date.now()-startTime)/1000));
+
+ ctx.fillStyle="#111";
+ ctx.font="23px sans-serif";
+ ctx.fillText("スコア: "+score,20,35);
+ ctx.fillText("残り時間: "+remain+"秒",20,68);
+ ctx.fillText("持てる数: "+player.carrying.length+" / "+player.capacity,20,101);
+
+ ctx.font="18px sans-serif";
+ ctx.fillText("操作：← → / A D",670,35);
+
+ if(noticeTimer>0){
+  ctx.fillStyle="rgba(255,230,80,0.95)";
+  ctx.fillRect(315,90,270,55);
+  ctx.strokeStyle="#333";
+  ctx.strokeRect(315,90,270,55);
+
+  ctx.fillStyle="#111";
+  ctx.font="28px sans-serif";
+  ctx.fillText(notice,350,128);
+ }
+
+ if(gameOver){
+  ctx.fillStyle="rgba(0,0,0,0.6)";
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  ctx.fillStyle="#fff";
+  ctx.font="54px sans-serif";
+  ctx.fillText("TIME UP!",330,220);
+
+  ctx.font="32px sans-serif";
+  ctx.fillText("最終スコア: "+score,330,285);
+  ctx.fillText("Enter / Spaceで再挑戦",280,345);
+ }
+}
+
+function loop(){
+ update();
+ draw();
+ if(!gameOver)requestAnimationFrame(loop);
+}
+
+loadRanking();
+startGame();
+</script>
+</body>
+</html>
